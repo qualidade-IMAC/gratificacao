@@ -519,7 +519,7 @@
                                 <li><b>Função ou Cargo</b> (Ex: <span class="bg-white px-1 rounded border">Líder</span> ou <span class="bg-white px-1 rounded border">Liderado</span>)</li>
                                 <li><b>Valor</b> (Valor base da gratificação, ex: 180, 250)</li>
                             </ul>
-                            <p class="italic opacity-80 mt-3 text-xs">* O sistema procurará automaticamente os cabeçalhos, mesmo que haja linhas em branco no topo.</p>
+                            <p class="italic opacity-80 mt-3 text-xs">* O sistema é inteligente: encontra as colunas mesmo que existam espaços vazios ou linhas em branco no topo da folha.</p>
                         </div>
 
                         <div class="flex flex-col items-center justify-center w-full mt-4">
@@ -551,7 +551,8 @@
                         const firstSheetName = workbook.SheetNames[0];
                         const worksheet = workbook.Sheets[firstSheetName];
                         
-                        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        // Use defval: '' para garantir que não existam arrays esparsos e colunas desalinhadas
+                        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
                         if (json.length < 2) {
                             return app.toast("A folha de cálculo parece estar vazia ou não tem dados válidos.", "error");
@@ -561,13 +562,15 @@
                         let headerRowIndex = -1;
                         let headers = [];
 
-                        for (let r = 0; r < Math.min(json.length, 20); r++) {
+                        for (let r = 0; r < Math.min(json.length, 30); r++) {
                             const rowData = json[r];
-                            if (!rowData || rowData.length === 0) continue;
+                            if (!rowData || !Array.isArray(rowData)) continue;
                             
+                            // Normalizar linha ignorando acentos e convertendo para minúsculas
                             const rowStrings = rowData.map(h => String(h || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
-                            // Se a linha tem a palavra "nome" ou "colaborador", assumimos que é a linha de cabeçalho
-                            if (rowStrings.some(h => h.includes('nome') || h.includes('colaborador'))) {
+                            
+                            // Verifica se há alguma célula que se pareça com "nome" ou "colaborador"
+                            if (rowStrings.some(h => h === 'nome' || h.includes('nome') || h.includes('colaborador'))) {
                                 headerRowIndex = r;
                                 headers = rowStrings;
                                 break;
@@ -575,16 +578,17 @@
                         }
 
                         if (headerRowIndex === -1) {
-                            return app.toast("Não foi possível encontrar uma linha com a coluna 'Nome'.", "error");
+                            return app.toast("Erro: Não foi possível encontrar a coluna 'Nome' no cabeçalho da planilha.", "error");
                         }
 
-                        const idxNome = headers.findIndex(h => h.includes('nome') || h.includes('colaborador'));
-                        const idxSetor = headers.findIndex(h => h.includes('setor'));
-                        const idxCargo = headers.findIndex(h => h.includes('cargo') || h.includes('perfil') || h.includes('funcao'));
-                        const idxValor = headers.findIndex(h => h.includes('valor'));
+                        // Localizar os índices de cada coluna
+                        const idxNome = headers.findIndex(h => h === 'nome' || h.includes('nome') || h.includes('colaborador'));
+                        const idxSetor = headers.findIndex(h => h.includes('setor') || h.includes('area') || h.includes('departamento'));
+                        const idxCargo = headers.findIndex(h => h.includes('cargo') || h.includes('funcao') || h.includes('função') || h.includes('perfil') || h.includes('lider'));
+                        const idxValor = headers.findIndex(h => h.includes('valor') || h.includes('gratificacao') || h.includes('base'));
 
-                        if (idxNome === -1 || idxSetor === -1) {
-                            return app.toast("A folha de cálculo tem de conter as colunas 'Nome' e 'Setor'.", "error");
+                        if (idxNome === -1) {
+                            return app.toast("A folha de cálculo tem de conter, pelo menos, a coluna 'Nome'.", "error");
                         }
 
                         let sectorsMap = new Map(); 
@@ -592,24 +596,39 @@
 
                         let employeesToSave = [];
                         let sectorsToSave = new Map();
+                        let importedCount = 0;
 
-                        // Começar a ler os dados a partir da linha logo a seguir ao cabeçalho
+                        // Ler os dados a partir da linha logo a seguir ao cabeçalho
                         for (let i = headerRowIndex + 1; i < json.length; i++) {
                             const row = json[i];
-                            if (!row || row.length === 0 || !row[idxNome]) continue;
+                            if (!row || row.length === 0) continue;
 
-                            const rawName = String(row[idxNome]).trim();
-                            const rawSector = row[idxSetor] ? String(row[idxSetor]).trim() : 'Geral';
-                            const rawCargo = row[idxCargo] ? String(row[idxCargo]).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "") : 'liderado';
+                            const rawName = String(row[idxNome] || '').trim();
+                            if (!rawName || rawName === '') continue; // Ignora linhas em branco
+
+                            const rawSector = (idxSetor !== -1 && row[idxSetor]) ? String(row[idxSetor]).trim() : 'Geral';
+                            const rawCargo = (idxCargo !== -1 && row[idxCargo]) ? String(row[idxCargo]).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "") : 'liderado';
                             
-                            let rawValor = 0;
-                            if (row[idxValor]) {
-                                rawValor = parseFloat(String(row[idxValor]).replace('R$', '').trim().replace(',', '.'));
+                            let rawValor = null;
+                            if (idxValor !== -1 && row[idxValor]) {
+                                let v = String(row[idxValor]).replace('R$', '').trim();
+                                // Se tiver vírgula e ponto (ex: 1.200,50), remove o ponto e troca vírgula por ponto
+                                if (v.includes(',') && v.includes('.')) {
+                                    v = v.replace(/\./g, '').replace(',', '.');
+                                } else {
+                                    // Se só tiver vírgula (ex: 180,00)
+                                    v = v.replace(',', '.');
+                                }
+                                const parsedVal = parseFloat(v);
+                                if (!isNaN(parsedVal) && parsedVal > 0) {
+                                    rawValor = parsedVal;
+                                }
                             }
 
                             const role = (rawCargo.includes('lider') && !rawCargo.includes('liderado')) ? 'lider' : 'liderado';
                             const sectorKey = rawSector.toLowerCase();
 
+                            // Obter ou criar setor
                             let sector = sectorsMap.get(sectorKey);
                             if (!sector) {
                                 sector = {
@@ -622,8 +641,8 @@
                                 sectorsToSave.set(sector.id, sector);
                             }
 
-                            // Atualiza os valores base do Setor
-                            if (rawValor && !isNaN(rawValor) && rawValor > 0) {
+                            // Atualizar os valores base do Setor se aplicável
+                            if (rawValor !== null) {
                                 if (role === 'lider' && sector.val_lider === 0) {
                                     sector.val_lider = rawValor;
                                     sectorsToSave.set(sector.id, sector);
@@ -634,8 +653,9 @@
                                 }
                             }
 
+                            // Obter ou criar colaborador
                             let emp = state.employees.find(e => e.name.toLowerCase() === rawName.toLowerCase());
-                            const finalCustomVal = (rawValor && !isNaN(rawValor) && rawValor > 0) ? rawValor : null;
+                            const finalCustomVal = rawValor !== null ? rawValor : null;
 
                             if (!emp) {
                                 emp = {
@@ -647,13 +667,21 @@
                                     active: true
                                 };
                                 employeesToSave.push(emp);
+                                importedCount++;
                             } else {
                                 let changed = false;
                                 if(emp.sectorId !== sector.id) { emp.sectorId = sector.id; changed = true; }
                                 if(emp.role !== role) { emp.role = role; changed = true; }
                                 if(emp.customBaseValue !== finalCustomVal) { emp.customBaseValue = finalCustomVal; changed = true; }
-                                if (changed) employeesToSave.push(emp);
+                                if (changed) {
+                                    employeesToSave.push(emp);
+                                    importedCount++;
+                                }
                             }
+                        }
+
+                        if (importedCount === 0) {
+                            return app.toast("Nenhum colaborador novo ou com alterações encontrado.", "info");
                         }
 
                         if (!db) return app.toast("Modo local. Conecte ao banco de dados para salvar.", "error");
@@ -668,12 +696,15 @@
                             await setDoc(doc(db, `artifacts/${appId}/public/data/employees`, emp.id), emp);
                         }
 
-                        app.toast(`${employeesToSave.length} colaborador(es) importado(s) com sucesso!`, "success");
+                        app.toast(`${importedCount} colaborador(es) importado(s) com sucesso!`, "success");
                     } catch (error) {
                         console.error("Erro ao importar:", error);
                         app.toast("Erro ao ler a folha de cálculo. Verifique o formato.", "error");
                     }
                 };
+                reader.onerror = () => {
+                    app.toast("Falha na leitura do arquivo.", "error");
+                }
                 reader.readAsArrayBuffer(file);
             },
 

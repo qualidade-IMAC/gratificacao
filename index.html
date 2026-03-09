@@ -752,6 +752,25 @@
                 app.toast("Setor salvo com sucesso.", "success");
                 app.closeModal();
             },
+            
+            // --- NEW: EXCLUIR SETOR ---
+            deleteSector: (id) => {
+                // Verificar se existem colaboradores neste setor
+                const empsInSector = state.employees.filter(emp => emp.sectorId === id);
+                if (empsInSector.length > 0) {
+                    app.toast(`Não é possível excluir. Existem ${empsInSector.length} colaboradores neste setor.`, "error");
+                    return;
+                }
+                app.confirmAction("Tem certeza que deseja remover este setor? Esta ação não pode ser desfeita.", `app.executeDeleteSector('${id}')`);
+            },
+            executeDeleteSector: async (id) => {
+                if(db) {
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/sectors`, id));
+                    app.toast("Setor removido com sucesso.", "success");
+                }
+            },
+            // --------------------------
+
             deleteLog: (id) => {
                 app.confirmAction("Excluir este registro de erro?", `app.executeDeleteLog('${id}')`);
             },
@@ -1071,14 +1090,22 @@
                 },
                 setores: () => {
                     const secRows = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(sec => `
-                        <tr class="border-b hover:bg-gray-50"><td class="px-4 py-3 font-medium text-gray-800">${sec.name}</td><td class="px-4 py-3">${formatBRL(sec.val_liderado)}</td><td class="px-4 py-3">${formatBRL(sec.val_lider)}</td><td class="px-4 py-3 text-right"><button onclick="app.showSectorForm('${sec.id}')" class="text-blue-500"><i class="fa-solid fa-pen"></i></button></td></tr>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 font-medium text-gray-800">${sec.name}</td>
+                            <td class="px-4 py-3">${formatBRL(sec.val_liderado)}</td>
+                            <td class="px-4 py-3">${formatBRL(sec.val_lider)}</td>
+                            <td class="px-4 py-3 text-right">
+                                <button onclick="app.showSectorForm('${sec.id}')" class="text-blue-500 hover:text-blue-700 mx-2"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="app.deleteSector('${sec.id}')" class="text-red-500 hover:text-red-700 mx-2"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
                     `).join('');
                     const ruleRows = state.rules.map(rule => `
                         <tr class="border-b hover:bg-gray-50"><td class="px-4 py-3 text-gray-800">${rule.name}</td><td class="px-4 py-3 text-red-500 font-semibold">-${formatPct(rule.pct)}</td><td class="px-4 py-3 text-gray-600">Até ${rule.max}x</td></tr>
                     `).join('');
                     return `
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold text-gray-800">Setores</h2><button onclick="app.showSectorForm()" class="bg-blue-600 text-white px-3 py-1 text-sm rounded-lg"><i class="fa-solid fa-plus"></i> Novo</button></div><div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b text-sm text-gray-500"><tr><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Liderado</th><th class="px-4 py-3">Líder</th><th class="px-4 py-3 text-right">Ação</th></tr></thead><tbody>${secRows}</tbody></table></div></div>
+                            <div><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold text-gray-800">Setores</h2><button onclick="app.showSectorForm()" class="bg-blue-600 text-white px-3 py-1 text-sm rounded-lg"><i class="fa-solid fa-plus"></i> Novo</button></div><div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b text-sm text-gray-500"><tr><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Liderado</th><th class="px-4 py-3">Líder</th><th class="px-4 py-3 text-right">Ações</th></tr></thead><tbody>${secRows}</tbody></table></div></div>
                             <div><h2 class="text-xl font-bold text-gray-800 mb-4">Regras de Desconto</h2><div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b text-sm text-gray-500"><tr><th class="px-4 py-3">Critério</th><th class="px-4 py-3">% Desconto</th><th class="px-4 py-3">Limite</th></tr></thead><tbody>${ruleRows}</tbody></table></div></div>
                         </div>
                     `;
@@ -1274,6 +1301,14 @@
                         reportContent = app.generateErrorLogsReportHtml(selectedMonth);
                     }
 
+                    // Formatar o mês por extenso
+                    let mesExtenso = selectedMonth;
+                    if (selectedMonth && selectedMonth.includes('-')) {
+                        const [ano, mes] = selectedMonth.split('-');
+                        const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+                        mesExtenso = nomesMeses[parseInt(mes, 10) - 1] + ' de ' + ano;
+                    }
+
                     const logoHtml = state.settings?.logo ? `<img src="${state.settings.logo}" class="print-logo">` : `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 no-print"><i class="fa-solid fa-image"></i></div>`;
 
                     return `
@@ -1308,8 +1343,9 @@
                             <!-- Print Header (Visível sempre na web, estilizado no print) -->
                             <div class="print-header flex justify-between items-center border-b-2 border-gray-100 pb-6 mb-6">
                                 <div>
-                                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight">${pdfTitle}</h1>
-                                    <p class="text-gray-500 mt-1 font-medium text-lg">Competência: <span class="text-blue-600 font-bold">${selectedMonth}</span></p>
+                                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Gratificação Mensal</h1>
+                                    <p class="text-gray-500 mt-1 font-bold text-xl uppercase tracking-wide">${mesExtenso}</p>
+                                    <p class="text-sm text-blue-600 mt-1 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block">${pdfTitle}</p>
                                 </div>
                                 <div>
                                     ${logoHtml}

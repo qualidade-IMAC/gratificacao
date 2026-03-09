@@ -228,6 +228,7 @@
         const state = {
             view: 'dashboard',
             reportTab: 'fechamento', 
+            logTab: 'novo',
             user: null,
             settings: { logo: '' },
             employees: [],
@@ -235,17 +236,7 @@
             logs: [],
             prorations: [],
             hygieneChecks: [],
-            rules: [
-                { id: 'produtividade', name: 'Produtividade', pct: 0.20, max: 1 },
-                { id: 'qualidade', name: 'Qualidade do Produto', pct: 0.05, max: 3 },
-                { id: 'pontualidade', name: 'Pontualidade/Assiduidade', pct: 0.05, max: 3 },
-                { id: 'procedimentos', name: 'Cumprimento de Procedimentos', pct: 0.0333, max: 3 },
-                { id: 'colaboracao', name: 'Colaboração/Trabalho em Equipe', pct: 0.0333, max: 3 },
-                { id: 'perdas', name: 'Perdas e Desperdícios', pct: 0.0333, max: 3 },
-                { id: 'auditoria', name: 'Auditoria BPF', pct: 0.10, max: 1 },
-                { id: 'seguranca', name: 'Segurança no Trabalho', pct: 0.05, max: 1 },
-                { id: 'dds', name: 'Participação DDS, Reuniões', pct: 0.05, max: 1 },
-            ]
+            rules: [] // Agora dinâmico, buscando do Firebase
         };
 
         let db, auth, appId, unsubscribeFuncs = [];
@@ -253,7 +244,6 @@
         // App Initializer
         const initFirebase = async () => {
             try {
-                // User provided configuration as Default
                 const defaultFirebaseConfig = {
                     apiKey: "AIzaSyAACkZnNeizzXIfH0cS1WZWCITD0scqpJY",
                     authDomain: "gratificacao-2e6e8.firebaseapp.com",
@@ -271,12 +261,10 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // Check for dynamic environment tokens (Canvas preview support)
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 }
 
-                // Auth State Listener (Controls Screen visibility)
                 onAuthStateChanged(auth, (user) => {
                     const loader = document.getElementById('loading-overlay');
                     const loginScreen = document.getElementById('login-screen');
@@ -309,43 +297,42 @@
             unsubscribeFuncs.forEach(unsub => unsub());
             const publicPath = `artifacts/${appId}/public/data`;
             
-            // Settings Listener
             unsubscribeFuncs.push(onSnapshot(doc(db, `${publicPath}/settings`, 'main'), (docSnap) => {
-                if (docSnap.exists()) {
-                    state.settings = docSnap.data();
-                }
+                if (docSnap.exists()) state.settings = docSnap.data();
                 if(state.view === 'configuracoes' || state.view === 'relatorios') window.app.render();
             }, (e) => console.error(e)));
 
-            // Employees
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/employees`)), (snap) => {
                 state.employees = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                window.app.render();
+                if(state.view === 'colaboradores' || state.view === 'lancamentos' || state.view === 'higiene') window.app.render();
             }, (e) => console.error(e)));
 
-            // Sectors
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/sectors`)), (snap) => {
                 state.sectors = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if(state.sectors.length === 0) populateInitialSectors();
-                window.app.render();
+                if(state.view === 'setores' || state.view === 'colaboradores' || state.view === 'lancamentos') window.app.render();
             }, (e) => console.error(e)));
 
-            // Logs (Errors)
+            // Listener para Regras Dinâmicas
+            unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/rules`)), (snap) => {
+                state.rules = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                if(state.rules.length === 0) populateInitialRules();
+                if(state.view === 'setores' || state.view === 'lancamentos' || state.view === 'relatorios' || state.view === 'dashboard') window.app.render();
+            }, (e) => console.error(e)));
+
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/logs`)), (snap) => {
                 state.logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                window.app.render();
+                if(state.view === 'lancamentos' || state.view === 'relatorios' || state.view === 'dashboard') window.app.render();
             }, (e) => console.error(e)));
 
-            // Prorations
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/prorations`)), (snap) => {
                 state.prorations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                window.app.render();
+                if(state.view === 'proporcionais' || state.view === 'relatorios') window.app.render();
             }, (e) => console.error(e)));
 
-            // Hygiene Checks
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/hygiene_checks`)), (snap) => {
                 state.hygieneChecks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                if (state.view === 'higiene') window.app.render();
+                if (state.view === 'higiene' || state.view === 'relatorios' || state.view === 'lancamentos') window.app.render();
             }, (e) => console.error(e)));
         };
 
@@ -361,12 +348,28 @@
             }
         };
 
-        // --- Helpers ---
+        const populateInitialRules = async () => {
+            const initialRules = [
+                { id: 'produtividade', name: 'Produtividade', pct: 0.20, max: 1 },
+                { id: 'qualidade', name: 'Qualidade do Produto', pct: 0.05, max: 3 },
+                { id: 'pontualidade', name: 'Pontualidade/Assiduidade', pct: 0.05, max: 3 },
+                { id: 'procedimentos', name: 'Cumprimento de Procedimentos', pct: 0.0333, max: 3 },
+                { id: 'colaboracao', name: 'Colaboração/Trabalho em Equipe', pct: 0.0333, max: 3 },
+                { id: 'perdas', name: 'Perdas e Desperdícios', pct: 0.0333, max: 3 },
+                { id: 'auditoria', name: 'Auditoria BPF', pct: 0.10, max: 1 },
+                { id: 'seguranca', name: 'Segurança no Trabalho', pct: 0.05, max: 1 },
+                { id: 'dds', name: 'Participação DDS, Reuniões', pct: 0.05, max: 1 },
+                { id: 'higiene', name: 'Higiene Pessoal (Inadequada)', pct: 0.0333, max: 3 }
+            ];
+            for (let r of initialRules) {
+                await setDoc(doc(db, `artifacts/${appId}/public/data/rules`, r.id), r);
+            }
+        };
+
         const formatBRL = (val) => Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const formatPct = (val) => (Number(val) * 100).toFixed(2) + '%';
         const getMonthId = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
         
-        // --- Core Application Logic Object ---
         window.app = {
             generateId: () => {
                 return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
@@ -398,7 +401,6 @@
                 `);
             },
 
-            // --- AUTH LOGIC ---
             loginWithGoogle: async () => {
                 const provider = new GoogleAuthProvider();
                 try {
@@ -449,6 +451,11 @@
                 app.render();
             },
 
+            setLogTab: (tab) => {
+                state.logTab = tab;
+                app.render();
+            },
+
             render: () => {
                 const container = document.getElementById('app-container');
                 switch (state.view) {
@@ -463,21 +470,147 @@
                 }
             },
 
-            // --- DATA OPERATIONS ---
+            // --- FILTROS E BUSCAS ---
+            filterColaboradores: () => {
+                const term = (document.getElementById('search_colab')?.value || '').toLowerCase();
+                const sortType = document.getElementById('sort_colab')?.value || 'name_asc';
+                
+                let filtered = state.employees.filter(e => e.name.toLowerCase().includes(term));
+                
+                filtered.sort((a,b) => {
+                    if (sortType === 'name_asc') return a.name.localeCompare(b.name);
+                    if (sortType === 'name_desc') return b.name.localeCompare(a.name);
+                    if (sortType === 'sec_asc') {
+                        const secA = state.sectors.find(s => s.id === a.sectorId)?.name || 'Z';
+                        const secB = state.sectors.find(s => s.id === b.sectorId)?.name || 'Z';
+                        return secA.localeCompare(secB) || a.name.localeCompare(b.name);
+                    }
+                    return 0;
+                });
+
+                const tbody = document.getElementById('colab_tbody');
+                if(!tbody) return;
+
+                const rows = filtered.map(emp => {
+                    const sec = state.sectors.find(s => s.id === emp.sectorId);
+                    const roleName = emp.role === 'lider' ? '<span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-semibold">Líder</span>' : '<span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded font-semibold">Liderado</span>';
+                    
+                    let baseVal = 0;
+                    if (emp.customBaseValue) { baseVal = emp.customBaseValue; } 
+                    else if (sec) { baseVal = emp.role === 'lider' ? sec.val_lider : sec.val_liderado; }
+                    
+                    const valDisplay = emp.customBaseValue 
+                        ? `<span class="text-emerald-600 font-bold" title="Valor Personalizado na Ficha">${formatBRL(baseVal)}</span>` 
+                        : `<span class="text-gray-500">${formatBRL(baseVal)}</span>`;
+
+                    return `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 font-medium text-gray-800">${emp.name}</td>
+                            <td class="px-4 py-3 text-gray-600">${sec ? sec.name : 'N/A'}</td>
+                            <td class="px-4 py-3">${roleName}</td>
+                            <td class="px-4 py-3">${valDisplay}</td>
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <button onclick="app.showEmployeeForm('${emp.id}')" class="text-blue-500 hover:text-blue-700 mx-2"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="app.deleteEmployee('${emp.id}')" class="text-red-500 hover:text-red-700 mx-2"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                tbody.innerHTML = rows || '<tr><td colspan="5" class="text-center py-8 text-gray-500">Nenhum colaborador encontrado com os filtros atuais.</td></tr>';
+            },
+
             filterLogEmp: (term) => {
                 term = term.toLowerCase();
                 const select = document.getElementById('log_emp');
+                if(!select) return;
                 Array.from(select.options).forEach(opt => {
                     if (opt.value === "") return;
                     const text = opt.text.toLowerCase();
-                    if (text.includes(term)) {
-                        opt.style.display = '';
-                    } else {
-                        opt.style.display = 'none';
-                    }
+                    if (text.includes(term)) { opt.style.display = ''; } 
+                    else { opt.style.display = 'none'; }
                 });
             },
 
+            renderLogsHistoryList: () => {
+                const month = document.getElementById('hist_month')?.value || getMonthId(new Date());
+                const sectorId = document.getElementById('hist_sec')?.value || '';
+                
+                let filteredLogs = state.logs.filter(l => l.monthId === month);
+                
+                if (sectorId) {
+                    const empsInSec = state.employees.filter(e => e.sectorId === sectorId).map(e => e.id);
+                    filteredLogs = filteredLogs.filter(l => empsInSec.includes(l.employeeId));
+                }
+
+                let filteredHygiene = state.hygieneChecks.filter(h => {
+                    const hMonth = h.monthId || getMonthId(new Date(h.date + 'T12:00:00'));
+                    return hMonth === month;
+                });
+                
+                if (sectorId) {
+                    const empsInSec = state.employees.filter(e => e.sectorId === sectorId).map(e => e.id);
+                    filteredHygiene = filteredHygiene.filter(h => empsInSec.includes(h.employeeId));
+                }
+
+                const hygieneAsLogs = filteredHygiene.map(h => ({
+                    id: h.id,
+                    employeeId: h.employeeId,
+                    date: h.date,
+                    ruleId: 'higiene',
+                    obs: h.obs,
+                    timestamp: h.timestamp,
+                    isHygiene: true
+                }));
+
+                const allRecords = [...filteredLogs, ...hygieneAsLogs].sort((a,b) => b.timestamp - a.timestamp);
+
+                const container = document.getElementById('log_history_container');
+                if (!container) return;
+
+                if (allRecords.length === 0) {
+                    container.innerHTML = '<div class="p-8 text-center text-gray-500 bg-white rounded-xl border border-gray-100 shadow-sm">Nenhum registro encontrado para este filtro.</div>';
+                    return;
+                }
+
+                const listHtml = allRecords.map(log => {
+                    const emp = state.employees.find(e => e.id === log.employeeId);
+                    const sec = state.sectors.find(s => s.id === emp?.sectorId);
+                    const rule = state.rules.find(r => r.id === log.ruleId);
+                    const dateStr = log.date ? log.date.split('-').reverse().join('/') : '--';
+                    const obsSnippet = log.obs ? `<p class="text-sm text-gray-600 mt-2 bg-gray-50 p-2 rounded border border-gray-100"><i class="fa-solid fa-comment-dots text-gray-400 mr-1"></i> ${log.obs}</p>` : '';
+                    
+                    const deleteAction = log.isHygiene 
+                        ? `app.executeDeleteHygieneRecord('${log.id}')` 
+                        : `app.executeDeleteLog('${log.id}')`;
+
+                    return `
+                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow mb-3 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between mb-1">
+                                    <h4 class="font-bold text-gray-800 text-lg">${emp ? emp.name : 'Desconhecido'}</h4>
+                                    <span class="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${dateStr}</span>
+                                </div>
+                                <div class="flex items-center space-x-2 text-sm">
+                                    <span class="text-slate-600 font-medium"><i class="fa-solid fa-sitemap opacity-50 mr-1"></i> ${sec ? sec.name : 'Geral'}</span>
+                                    <span class="text-gray-300">|</span>
+                                    <span class="text-red-600 font-bold">${rule ? rule.name : 'Infração Padrão'}</span>
+                                </div>
+                                ${obsSnippet}
+                            </div>
+                            <div class="flex items-center md:flex-col md:justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4">
+                                <button onclick="app.confirmAction('Excluir este registro?', '${deleteAction}')" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg font-medium transition-colors flex items-center w-full md:w-auto justify-center">
+                                    <i class="fa-solid fa-trash mr-2"></i> Excluir
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                container.innerHTML = listHtml;
+            },
+
+            // --- OPERAÇÕES GERAIS ---
             saveSettings: async (e) => {
                 e.preventDefault();
                 const fileInput = document.getElementById('logo_upload');
@@ -503,7 +636,6 @@
                 app.toast("Logo removida.", "success");
             },
 
-            // --- PLANILHA IMPORTAÇÃO ---
             showImportModal: () => {
                 app.openModal(`
                     <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -551,14 +683,12 @@
                         const firstSheetName = workbook.SheetNames[0];
                         const worksheet = workbook.Sheets[firstSheetName];
                         
-                        // Use defval: '' para garantir que não existam arrays esparsos e colunas desalinhadas
                         const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
                         if (json.length < 2) {
                             return app.toast("A folha de cálculo parece estar vazia ou não tem dados válidos.", "error");
                         }
 
-                        // Procurar de forma inteligente a linha onde os cabeçalhos começam
                         let headerRowIndex = -1;
                         let headers = [];
 
@@ -566,10 +696,8 @@
                             const rowData = json[r];
                             if (!rowData || !Array.isArray(rowData)) continue;
                             
-                            // Normalizar linha ignorando acentos e convertendo para minúsculas
                             const rowStrings = rowData.map(h => String(h || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
                             
-                            // Verifica se há alguma célula que se pareça com "nome" ou "colaborador"
                             if (rowStrings.some(h => h === 'nome' || h.includes('nome') || h.includes('colaborador'))) {
                                 headerRowIndex = r;
                                 headers = rowStrings;
@@ -581,7 +709,6 @@
                             return app.toast("Erro: Não foi possível encontrar a coluna 'Nome' no cabeçalho da planilha.", "error");
                         }
 
-                        // Localizar os índices de cada coluna
                         const idxNome = headers.findIndex(h => h === 'nome' || h.includes('nome') || h.includes('colaborador'));
                         const idxSetor = headers.findIndex(h => h.includes('setor') || h.includes('area') || h.includes('departamento'));
                         const idxCargo = headers.findIndex(h => h.includes('cargo') || h.includes('funcao') || h.includes('função') || h.includes('perfil') || h.includes('lider'));
@@ -598,13 +725,12 @@
                         let sectorsToSave = new Map();
                         let importedCount = 0;
 
-                        // Ler os dados a partir da linha logo a seguir ao cabeçalho
                         for (let i = headerRowIndex + 1; i < json.length; i++) {
                             const row = json[i];
                             if (!row || row.length === 0) continue;
 
                             const rawName = String(row[idxNome] || '').trim();
-                            if (!rawName || rawName === '') continue; // Ignora linhas em branco
+                            if (!rawName || rawName === '') continue;
 
                             const rawSector = (idxSetor !== -1 && row[idxSetor]) ? String(row[idxSetor]).trim() : 'Geral';
                             const rawCargo = (idxCargo !== -1 && row[idxCargo]) ? String(row[idxCargo]).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "") : 'liderado';
@@ -612,11 +738,9 @@
                             let rawValor = null;
                             if (idxValor !== -1 && row[idxValor]) {
                                 let v = String(row[idxValor]).replace('R$', '').trim();
-                                // Se tiver vírgula e ponto (ex: 1.200,50), remove o ponto e troca vírgula por ponto
                                 if (v.includes(',') && v.includes('.')) {
                                     v = v.replace(/\./g, '').replace(',', '.');
                                 } else {
-                                    // Se só tiver vírgula (ex: 180,00)
                                     v = v.replace(',', '.');
                                 }
                                 const parsedVal = parseFloat(v);
@@ -628,7 +752,6 @@
                             const role = (rawCargo.includes('lider') && !rawCargo.includes('liderado')) ? 'lider' : 'liderado';
                             const sectorKey = rawSector.toLowerCase();
 
-                            // Obter ou criar setor
                             let sector = sectorsMap.get(sectorKey);
                             if (!sector) {
                                 sector = {
@@ -641,7 +764,6 @@
                                 sectorsToSave.set(sector.id, sector);
                             }
 
-                            // Atualizar os valores base do Setor se aplicável
                             if (rawValor !== null) {
                                 if (role === 'lider' && sector.val_lider === 0) {
                                     sector.val_lider = rawValor;
@@ -653,7 +775,6 @@
                                 }
                             }
 
-                            // Obter ou criar colaborador
                             let emp = state.employees.find(e => e.name.toLowerCase() === rawName.toLowerCase());
                             const finalCustomVal = rawValor !== null ? rawValor : null;
 
@@ -686,12 +807,10 @@
 
                         if (!db) return app.toast("Modo local. Conecte ao banco de dados para salvar.", "error");
 
-                        // Salvar Setores
                         for (const [id, secData] of sectorsToSave.entries()) {
                             await setDoc(doc(db, `artifacts/${appId}/public/data/sectors`, id), secData);
                         }
 
-                        // Salvar Funcionários
                         for (const emp of employeesToSave) {
                             await setDoc(doc(db, `artifacts/${appId}/public/data/employees`, emp.id), emp);
                         }
@@ -708,6 +827,69 @@
                 reader.readAsArrayBuffer(file);
             },
 
+            // --- REGRAS (NOVO) ---
+            saveRule: async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('rule_id').value || app.generateId();
+                const data = {
+                    name: document.getElementById('rule_name').value,
+                    pct: Number(document.getElementById('rule_pct').value) / 100,
+                    max: Number(document.getElementById('rule_max').value)
+                };
+                if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/rules`, id), data);
+                app.toast("Regra salva com sucesso.", "success");
+                app.closeModal();
+            },
+            deleteRule: (id) => {
+                if (id === 'higiene') {
+                    return app.toast("A regra de Higiene Pessoal é nativa e não pode ser excluída.", "error");
+                }
+                app.confirmAction("Tem certeza que deseja remover este critério de desconto?", `app.executeDeleteRule('${id}')`);
+            },
+            executeDeleteRule: async (id) => {
+                if(db) {
+                    await deleteDoc(doc(db, `artifacts/${appId}/public/data/rules`, id));
+                    app.toast("Regra removida.", "success");
+                }
+            },
+            showRuleForm: (id = null) => {
+                // Modificado para usar app.openModal corretamente
+                const rule = id ? state.rules.find(r => r.id === id) : {};
+                const pctVal = rule.pct !== undefined ? (rule.pct * 100).toFixed(2) : '';
+                const html = `
+                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h2 class="text-xl font-bold text-gray-800">${id ? 'Editar Critério' : 'Novo Critério de Desconto'}</h2>
+                        <button onclick="app.closeModal()" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                    </div>
+                    <form onsubmit="app.saveRule(event)" class="p-6 space-y-4">
+                        <input type="hidden" id="rule_id" value="${rule.id || ''}">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Nome do Critério / Regra</label>
+                            <input type="text" id="rule_name" value="${rule.name || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">% de Desconto</label>
+                                <div class="relative">
+                                    <input type="number" step="0.01" id="rule_pct" value="${pctVal}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <span class="absolute right-4 top-2.5 text-gray-400 font-bold">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Limite (Máx. Acúmulo)</label>
+                                <input type="number" step="1" min="1" id="rule_max" value="${rule.max || 1}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                            </div>
+                        </div>
+                        <div class="pt-4 flex justify-end space-x-3">
+                            <button type="button" onclick="app.closeModal()" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
+                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
+                        </div>
+                    </form>
+                `;
+                app.openModal(html);
+            },
+
+            // --- LANÇAMENTOS E REGISTROS ---
             saveLog: async (e) => {
                 e.preventDefault();
                 const logType = document.querySelector('input[name="log_type"]:checked').value;
@@ -809,9 +991,7 @@
                 app.closeModal();
             },
             
-            // --- NEW: EXCLUIR SETOR ---
             deleteSector: (id) => {
-                // Verificar se existem colaboradores neste setor
                 const empsInSector = state.employees.filter(emp => emp.sectorId === id);
                 if (empsInSector.length > 0) {
                     app.toast(`Não é possível excluir. Existem ${empsInSector.length} colaboradores neste setor.`, "error");
@@ -825,11 +1005,7 @@
                     app.toast("Setor removido com sucesso.", "success");
                 }
             },
-            // --------------------------
 
-            deleteLog: (id) => {
-                app.confirmAction("Excluir este registro de erro?", `app.executeDeleteLog('${id}')`);
-            },
             executeDeleteLog: async (id) => {
                 if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/logs`, id));
                 app.toast("Registro excluído com sucesso.", "success");
@@ -862,151 +1038,23 @@
             toggleHygiene: async (empId, date, isChecked) => {
                 const id = `${date}_${empId}`;
                 if (isChecked) {
-                    const data = { employeeId: empId, date, timestamp: Date.now() };
+                    const monthId = getMonthId(new Date(date + 'T12:00:00'));
+                    const data = { employeeId: empId, date, monthId, timestamp: Date.now(), obs: '' };
                     if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id), data);
                 } else {
                     if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id));
                 }
             },
-            filterHigiene: (term) => {
-                term = term.toLowerCase();
-                const groups = document.querySelectorAll('.sector-group');
-                groups.forEach(group => {
-                    let hasVisible = false;
-                    const rows = group.querySelectorAll('.higiene-emp-row');
-                    rows.forEach(row => {
-                        if (row.dataset.name.includes(term)) {
-                            row.style.display = 'flex';
-                            hasVisible = true;
-                        } else {
-                            row.style.display = 'none';
-                        }
-                    });
-                    group.style.display = hasVisible ? 'block' : 'none';
-                });
+
+            updateHygieneObs: async (empId, date, obs) => {
+                const id = `${date}_${empId}`;
+                if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id), { obs }, { merge: true });
+                app.toast("Observação salva.", "success");
             },
 
-            openModal: (html) => {
-                document.getElementById('modals').innerHTML = `
-                    <div class="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4 backdrop-blur-sm">
-                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-[fadeIn_0.2s_ease-out]">
-                            ${html}
-                        </div>
-                    </div>
-                `;
-            },
-            closeModal: () => {
-                document.getElementById('modals').innerHTML = '';
-            },
-
-            showEmployeeForm: (id = null) => {
-                const emp = id ? state.employees.find(e => e.id === id) : {};
-                const sectorOpts = state.sectors.map(s => `<option value="${s.id}" ${emp.sectorId === s.id ? 'selected' : ''}>${s.name}</option>`).join('');
-                const html = `
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800">${id ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
-                        <button onclick="app.closeModal()" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
-                    </div>
-                    <form onsubmit="app.saveEmployee(event)" class="p-6 space-y-4">
-                        <input type="hidden" id="emp_id" value="${emp.id || ''}">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Nome Completo</label>
-                            <input type="text" id="emp_name" value="${emp.name || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Setor</label>
-                                <select id="emp_sector" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                                    <option value="">Selecione...</option>
-                                    ${sectorOpts}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Cargo/Perfil</label>
-                                <select id="emp_role" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                                    <option value="liderado" ${emp.role === 'liderado' ? 'selected' : ''}>Liderado</option>
-                                    <option value="lider" ${emp.role === 'lider' ? 'selected' : ''}>Líder</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Valor Base Personalizado (R$)</label>
-                            <input type="number" step="0.01" id="emp_custom_val" value="${emp.customBaseValue || ''}" placeholder="Deixe em branco para usar o padrão do setor" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                            <p class="text-xs text-gray-500 mt-1">Preencha apenas se receber um valor diferente do padrão de seu cargo/setor.</p>
-                        </div>
-                        <div class="pt-4 flex justify-end space-x-3">
-                            <button type="button" onclick="app.closeModal()" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
-                        </div>
-                    </form>
-                `;
-                app.openModal(html);
-            },
-            showSectorForm: (id = null) => {
-                const sec = id ? state.sectors.find(s => s.id === id) : {};
-                const html = `
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800">${id ? 'Editar Setor' : 'Novo Setor'}</h2>
-                        <button onclick="app.closeModal()" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
-                    </div>
-                    <form onsubmit="app.saveSector(event)" class="p-6 space-y-4">
-                        <input type="hidden" id="sec_id" value="${sec.id || ''}">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Nome do Setor</label>
-                            <input type="text" id="sec_name" value="${sec.name || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Valor Base Liderado (R$)</label>
-                                <input type="number" step="0.01" id="sec_val_liderado" value="${sec.val_liderado || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Valor Base Líder (R$)</label>
-                                <input type="number" step="0.01" id="sec_val_lider" value="${sec.val_lider || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                            </div>
-                        </div>
-                        <div class="pt-4 flex justify-end space-x-3">
-                            <button type="button" onclick="app.closeModal()" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
-                        </div>
-                    </form>
-                `;
-                app.openModal(html);
-            },
-            showProrationForm: () => {
-                const empOpts = state.employees.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-                const currentMonth = getMonthId(new Date());
-                const html = `
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800">Registrar Férias/Admissão</h2>
-                        <button onclick="app.closeModal()" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
-                    </div>
-                    <form onsubmit="app.saveProration(event)" class="p-6 space-y-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Colaborador</label>
-                            <select id="pro_emp" required class="w-full px-4 py-2 border rounded-lg bg-white">${empOpts}</select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Mês de Referência</label>
-                            <input type="month" id="pro_month" value="${currentMonth}" required class="w-full px-4 py-2 border rounded-lg">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Dias Trabalhados</label>
-                                <input type="number" min="0" max="31" id="pro_days" required class="w-full px-4 py-2 border rounded-lg">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Total Dias no Mês</label>
-                                <input type="number" min="28" max="31" id="pro_total" value="30" required class="w-full px-4 py-2 border rounded-lg">
-                            </div>
-                        </div>
-                        <div class="pt-4 flex justify-end space-x-3">
-                            <button type="button" onclick="app.closeModal()" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
-                        </div>
-                    </form>
-                `;
-                app.openModal(html);
+            executeDeleteHygieneRecord: async (id) => {
+                if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id));
+                app.toast("Penalidade de higiene removida.", "success");
             },
 
             // --- REPORTS ---
@@ -1031,12 +1079,18 @@
                     }
 
                     const empLogs = state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId);
+                    const empHygiene = state.hygieneChecks.filter(h => h.employeeId === emp.id && (h.monthId === monthId || getMonthId(new Date(h.date+'T12:00:00')) === monthId));
+                    
                     let totalDeductionPct = 0;
                     const errorCounts = {};
 
                     empLogs.forEach(log => {
                         errorCounts[log.ruleId] = (errorCounts[log.ruleId] || 0) + 1;
                     });
+                    
+                    if (empHygiene.length > 0) {
+                        errorCounts['higiene'] = empHygiene.length;
+                    }
 
                     state.rules.forEach(rule => {
                         const count = errorCounts[rule.id] || 0;
@@ -1066,10 +1120,14 @@
                     
                     let sectorLogsHtml = '';
                     emps.forEach(emp => {
-                        const empLogs = state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId).sort((a,b) => new Date(a.date || 0) - new Date(b.date || 0));
-                        if(empLogs.length === 0) return;
+                        const empLogs = state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId);
+                        const empHygiene = state.hygieneChecks.filter(h => h.employeeId === emp.id && (h.monthId === monthId || getMonthId(new Date(h.date+'T12:00:00')) === monthId))
+                                          .map(h => ({ ...h, ruleId: 'higiene' }));
                         
-                        const logsList = empLogs.map(l => {
+                        const allLogs = [...empLogs, ...empHygiene].sort((a,b) => new Date(a.date || 0) - new Date(b.date || 0));
+                        if(allLogs.length === 0) return;
+                        
+                        const logsList = allLogs.map(l => {
                             const rule = state.rules.find(r => r.id === l.ruleId);
                             const dateStr = l.date ? l.date.split('-').reverse().join('/') : '--/--/----';
                             const obsStr = l.obs ? `<br><span class="text-xs text-gray-500 italic mt-1 block"><i class="fa-solid fa-comment-dots text-gray-400 mr-1"></i> ${l.obs}</span>` : '';
@@ -1112,7 +1170,8 @@
                     const monthId = getMonthId(new Date());
                     const report = app.calculateMonthlyReport(monthId);
                     const totalPay = report.reduce((sum, r) => sum + r.finalValue, 0);
-                    const totalErrors = state.logs.filter(l => l.monthId === monthId).length;
+                    const totalErrors = state.logs.filter(l => l.monthId === monthId).length + 
+                                        state.hygieneChecks.filter(h => (h.monthId === monthId || getMonthId(new Date(h.date+'T12:00:00')) === monthId)).length;
 
                     return `
                         <h3 class="text-gray-800 text-xl font-bold mb-4">Visão Geral - ${monthId}</h3>
@@ -1133,33 +1192,8 @@
                     `;
                 },
                 colaboradores: () => {
-                    const rows = state.employees.sort((a,b)=>a.name.localeCompare(b.name)).map(emp => {
-                        const sec = state.sectors.find(s => s.id === emp.sectorId);
-                        const roleName = emp.role === 'lider' ? '<span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-semibold">Líder</span>' : '<span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded font-semibold">Liderado</span>';
-                        
-                        let baseVal = 0;
-                        if (emp.customBaseValue) {
-                            baseVal = emp.customBaseValue;
-                        } else if (sec) {
-                            baseVal = emp.role === 'lider' ? sec.val_lider : sec.val_liderado;
-                        }
-                        const valDisplay = emp.customBaseValue 
-                            ? `<span class="text-emerald-600 font-bold" title="Valor Personalizado na Ficha">${formatBRL(baseVal)}</span>` 
-                            : `<span class="text-gray-500">${formatBRL(baseVal)}</span>`;
+                    setTimeout(app.filterColaboradores, 0);
 
-                        return `
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="px-4 py-3 font-medium text-gray-800">${emp.name}</td>
-                                <td class="px-4 py-3 text-gray-600">${sec ? sec.name : 'N/A'}</td>
-                                <td class="px-4 py-3">${roleName}</td>
-                                <td class="px-4 py-3">${valDisplay}</td>
-                                <td class="px-4 py-3 text-right">
-                                    <button onclick="app.showEmployeeForm('${emp.id}')" class="text-blue-500 hover:text-blue-700 mx-2"><i class="fa-solid fa-pen"></i></button>
-                                    <button onclick="app.deleteEmployee('${emp.id}')" class="text-red-500 hover:text-red-700 mx-2"><i class="fa-solid fa-trash"></i></button>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
                     return `
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
                             <h2 class="text-2xl font-bold text-gray-800">Colaboradores</h2>
@@ -1172,7 +1206,42 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead><tr class="bg-gray-50 text-gray-500 text-sm border-b"><th class="px-4 py-3">Nome</th><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Perfil</th><th class="px-4 py-3">Valor Base</th><th class="px-4 py-3 text-right">Ações</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="text-center py-8">Nenhum colaborador.</td></tr>'}</tbody></table></div>
+
+                        <!-- Filtros e Buscas -->
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row gap-4 items-center">
+                            <div class="relative flex-1 w-full">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                                </div>
+                                <input type="text" id="search_colab" placeholder="Buscar por nome..." onkeyup="app.filterColaboradores()" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                            </div>
+                            <div class="flex items-center w-full md:w-auto">
+                                <label class="text-sm font-semibold text-gray-600 mr-2 whitespace-nowrap">Ordenar:</label>
+                                <select id="sort_colab" onchange="app.filterColaboradores()" class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <option value="name_asc">Nome (A-Z)</option>
+                                    <option value="name_desc">Nome (Z-A)</option>
+                                    <option value="sec_asc">Agrupar por Setor</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead>
+                                        <tr class="bg-gray-50 text-gray-500 text-sm border-b">
+                                            <th class="px-4 py-3">Nome</th>
+                                            <th class="px-4 py-3">Setor</th>
+                                            <th class="px-4 py-3">Perfil</th>
+                                            <th class="px-4 py-3">Valor Base</th>
+                                            <th class="px-4 py-3 text-right">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="colab_tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     `;
                 },
                 setores: () => {
@@ -1181,122 +1250,190 @@
                             <td class="px-4 py-3 font-medium text-gray-800">${sec.name}</td>
                             <td class="px-4 py-3">${formatBRL(sec.val_liderado)}</td>
                             <td class="px-4 py-3">${formatBRL(sec.val_lider)}</td>
-                            <td class="px-4 py-3 text-right">
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <button onclick="app.showSectorForm('${sec.id}')" class="text-blue-500 hover:text-blue-700 mx-2"><i class="fa-solid fa-pen"></i></button>
                                 <button onclick="app.deleteSector('${sec.id}')" class="text-red-500 hover:text-red-700 mx-2"><i class="fa-solid fa-trash"></i></button>
                             </td>
                         </tr>
                     `).join('');
+                    
                     const ruleRows = state.rules.map(rule => `
-                        <tr class="border-b hover:bg-gray-50"><td class="px-4 py-3 text-gray-800">${rule.name}</td><td class="px-4 py-3 text-red-500 font-semibold">-${formatPct(rule.pct)}</td><td class="px-4 py-3 text-gray-600">Até ${rule.max}x</td></tr>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 text-gray-800 font-medium">${rule.name}</td>
+                            <td class="px-4 py-3 text-red-500 font-bold">-${formatPct(rule.pct)}</td>
+                            <td class="px-4 py-3 text-gray-600 font-medium">Até ${rule.max}x</td>
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <button onclick="app.showRuleForm('${rule.id}')" class="text-blue-500 hover:text-blue-700 mx-1"><i class="fa-solid fa-pen"></i></button>
+                                ${rule.id !== 'higiene' ? `<button onclick="app.deleteRule('${rule.id}')" class="text-red-500 hover:text-red-700 mx-1"><i class="fa-solid fa-trash"></i></button>` : ''}
+                            </td>
+                        </tr>
                     `).join('');
+
                     return `
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold text-gray-800">Setores</h2><button onclick="app.showSectorForm()" class="bg-blue-600 text-white px-3 py-1 text-sm rounded-lg"><i class="fa-solid fa-plus"></i> Novo</button></div><div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b text-sm text-gray-500"><tr><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Liderado</th><th class="px-4 py-3">Líder</th><th class="px-4 py-3 text-right">Ações</th></tr></thead><tbody>${secRows}</tbody></table></div></div>
-                            <div><h2 class="text-xl font-bold text-gray-800 mb-4">Regras de Desconto</h2><div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><table class="w-full text-left"><thead class="bg-gray-50 border-b text-sm text-gray-500"><tr><th class="px-4 py-3">Critério</th><th class="px-4 py-3">% Desconto</th><th class="px-4 py-3">Limite</th></tr></thead><tbody>${ruleRows}</tbody></table></div></div>
+                            <!-- Setores -->
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h2 class="text-xl font-bold text-gray-800">Setores</h2>
+                                    <button onclick="app.showSectorForm()" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium"><i class="fa-solid fa-plus mr-1"></i> Novo</button>
+                                </div>
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <table class="w-full text-left">
+                                        <thead class="bg-gray-50 border-b text-sm text-gray-500">
+                                            <tr><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Liderado</th><th class="px-4 py-3">Líder</th><th class="px-4 py-3 text-right">Ações</th></tr>
+                                        </thead>
+                                        <tbody>${secRows || '<tr><td colspan="4" class="text-center py-4">Nenhum setor.</td></tr>'}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <!-- Regras -->
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h2 class="text-xl font-bold text-gray-800">Regras de Desconto</h2>
+                                    <button onclick="app.showRuleForm()" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium"><i class="fa-solid fa-plus mr-1"></i> Nova Regra</button>
+                                </div>
+                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <table class="w-full text-left">
+                                        <thead class="bg-gray-50 border-b text-sm text-gray-500">
+                                            <tr><th class="px-4 py-3">Critério</th><th class="px-4 py-3">% Desconto</th><th class="px-4 py-3">Limite</th><th class="px-4 py-3 text-right">Ações</th></tr>
+                                        </thead>
+                                        <tbody>${ruleRows || '<tr><td colspan="4" class="text-center py-4">Nenhuma regra.</td></tr>'}</tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     `;
                 },
                 lancamentos: () => {
-                    const empOpts = state.employees.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => `<option value="${e.id}" class="py-2 border-b border-gray-50">${e.name}</option>`).join('');
-                    const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-                    const ruleOpts = state.rules.map(r => `<option value="${r.id}">${r.name} (-${formatPct(r.pct)})</option>`).join('');
+                    const activeTab = state.logTab || 'novo';
                     
-                    const today = new Date().toISOString().split('T')[0];
-                    const currentMonthId = getMonthId(new Date());
+                    const tabSelector = `
+                        <div class="flex space-x-2 mb-6 bg-gray-200 p-1 rounded-xl w-fit">
+                            <button onclick="app.setLogTab('novo')" class="${activeTab==='novo'?'bg-white shadow-sm text-blue-600 font-bold':'text-gray-600 hover:text-gray-800'} px-6 py-2.5 rounded-lg transition-all">
+                                <i class="fa-solid fa-plus-circle mr-2"></i> Novo Lançamento
+                            </button>
+                            <button onclick="app.setLogTab('historico')" class="${activeTab==='historico'?'bg-white shadow-sm text-blue-600 font-bold':'text-gray-600 hover:text-gray-800'} px-6 py-2.5 rounded-lg transition-all">
+                                <i class="fa-solid fa-clock-rotate-left mr-2"></i> Consultar Histórico
+                            </button>
+                        </div>
+                    `;
 
-                    const recentLogs = state.logs.filter(l => l.monthId === currentMonthId).sort((a,b) => b.timestamp - a.timestamp).slice(0, 10).map(log => {
-                            const emp = state.employees.find(e => e.id === log.employeeId)?.name || 'Desconhecido';
-                            const rule = state.rules.find(r => r.id === log.ruleId)?.name || 'Desconhecido';
-                            const dateStr = log.date ? log.date.split('-').reverse().join('/') : '--/--/----';
-                            const obsSnippet = log.obs ? `<p class="text-xs text-gray-500 italic truncate w-48 mt-0.5" title="${log.obs}">${log.obs}</p>` : '';
+                    if (activeTab === 'historico') {
+                        setTimeout(app.renderLogsHistoryList, 0); // Renderiza a lista do histórico
+                        const monthOpts = [...new Set([...state.logs, ...state.hygieneChecks].map(l => l.monthId||getMonthId(new Date(l.date+'T12:00:00')))), getMonthId(new Date())].sort().reverse().map(m => `<option value="${m}">${m}</option>`).join('');
+                        const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+                        return `
+                            <h2 class="text-2xl font-bold text-gray-800 mb-6">Controle de Ocorrências</h2>
+                            ${tabSelector}
                             
-                            return `<div class="flex justify-between items-center p-3 border-b hover:bg-gray-50"><div class="overflow-hidden"><p class="font-semibold text-gray-800 text-sm">${emp}</p><p class="text-xs text-red-600">${rule} | ${dateStr}</p>${obsSnippet}</div><button onclick="app.deleteLog('${log.id}')" class="text-red-400 ml-2 shrink-0"><i class="fa-solid fa-trash"></i></button></div>`;
-                        }).join('');
-
-                    return `
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <div class="lg:col-span-2">
-                                <h2 class="text-2xl font-bold text-gray-800 mb-6">Lançamento de Erros/Faltas</h2>
-                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                    <form id="log_form" onsubmit="app.saveLog(event)" class="space-y-6">
-                                        
-                                        <!-- Tipo de Lançamento -->
-                                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                            <label class="block text-sm font-bold text-gray-700 mb-3">1. Tipo de Lançamento</label>
-                                            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-6">
-                                                <label class="flex items-center space-x-2 cursor-pointer">
-                                                    <input type="radio" name="log_type" value="individual" checked onchange="document.getElementById('div_emp').classList.remove('hidden'); document.getElementById('div_sec').classList.add('hidden');" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
-                                                    <span class="font-medium text-gray-800">Colaborador (Individual)</span>
-                                                </label>
-                                                <label class="flex items-center space-x-2 cursor-pointer">
-                                                    <input type="radio" name="log_type" value="setor" onchange="document.getElementById('div_emp').classList.add('hidden'); document.getElementById('div_sec').classList.remove('hidden');" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
-                                                    <span class="font-medium text-gray-800">Setor Inteiro (Coletivo)</span>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        <!-- Alvo do Lançamento -->
-                                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                            <label class="block text-sm font-bold text-blue-900 mb-2">2. Selecione o Alvo</label>
-                                            
-                                            <!-- Seleção Individual -->
-                                            <div id="div_emp">
-                                                <div class="relative mb-2">
-                                                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                                        <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
-                                                    </div>
-                                                    <input type="text" id="log_emp_search" placeholder="Busca inteligente por nome..." onkeyup="app.filterLogEmp(this.value)" class="w-full pl-10 pr-4 py-3 text-lg border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white">
-                                                </div>
-                                                <select id="log_emp" size="5" class="w-full px-2 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner text-lg">
-                                                    <option value="" class="hidden">Selecione...</option>
-                                                    ${empOpts}
-                                                </select>
-                                            </div>
-
-                                            <!-- Seleção por Setor -->
-                                            <div id="div_sec" class="hidden">
-                                                <p class="text-sm text-blue-800 mb-2 italic">O desconto será aplicado a todos os colaboradores vinculados ao setor selecionado.</p>
-                                                <select id="log_sec" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner text-lg">
-                                                    <option value="">Selecione o setor penalizado...</option>
-                                                    ${sectorOpts}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-                                            <div>
-                                                <label class="block text-sm font-semibold text-gray-700 mb-1">3. Data da Ocorrência</label>
-                                                <input type="date" id="log_date" value="${today}" required class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-semibold text-gray-700 mb-1">4. Critério (Erro/Falta)</label>
-                                                <select id="log_rule" required class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                                                    <option value="">Selecione a ocorrência...</option>
-                                                    ${ruleOpts}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-1">5. Observação / Justificativa (Opcional)</label>
-                                            <textarea id="log_obs" rows="2" placeholder="Descreva brevemente o motivo do desconto..." class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
-                                        </div>
-
-                                        <div class="pt-4">
-                                            <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors flex justify-center items-center text-lg">
-                                                <i class="fa-solid fa-triangle-exclamation mr-2"></i> Registrar Desconto
-                                            </button>
-                                        </div>
-                                    </form>
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+                                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Filtros de Busca</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-600 mb-1">Mês de Referência:</label>
+                                        <select id="hist_month" onchange="app.renderLogsHistoryList()" class="w-full px-4 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                                            ${monthOpts}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-600 mb-1">Filtrar por Setor:</label>
+                                        <select id="hist_sec" onchange="app.renderLogsHistoryList()" class="w-full px-4 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                                            <option value="">Todos os Setores</option>
+                                            ${sectorOpts}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div>
-                                <h3 class="text-lg font-bold text-gray-800 mb-4">Últimos Lançamentos (${currentMonthId})</h3>
-                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                    ${recentLogs || '<div class="p-6 text-center text-gray-500">Nenhum erro registrado.</div>'}
-                                </div>
+
+                            <div id="log_history_container">
+                                <!-- Preenchido por app.renderLogsHistoryList() -->
+                            </div>
+                        `;
+                    }
+
+                    // Se a tab ativa for 'novo'
+                    const empOpts = state.employees.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => `<option value="${e.id}" class="py-2 border-b border-gray-50">${e.name}</option>`).join('');
+                    const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                    // Ocultar a regra de higiene do dropdown genérico
+                    const ruleOpts = state.rules.filter(r => r.id !== 'higiene').map(r => `<option value="${r.id}">${r.name} (-${formatPct(r.pct)})</option>`).join('');
+                    
+                    const today = new Date().toISOString().split('T')[0];
+
+                    return `
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Controle de Ocorrências</h2>
+                        ${tabSelector}
+
+                        <div class="max-w-4xl mx-auto">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
+                                <form id="log_form" onsubmit="app.saveLog(event)" class="space-y-6">
+                                    
+                                    <!-- Tipo de Lançamento -->
+                                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                        <label class="block text-sm font-bold text-gray-700 mb-3">1. Tipo de Lançamento</label>
+                                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-6">
+                                            <label class="flex items-center space-x-2 cursor-pointer">
+                                                <input type="radio" name="log_type" value="individual" checked onchange="document.getElementById('div_emp').classList.remove('hidden'); document.getElementById('div_sec').classList.add('hidden');" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
+                                                <span class="font-medium text-gray-800">Colaborador (Individual)</span>
+                                            </label>
+                                            <label class="flex items-center space-x-2 cursor-pointer">
+                                                <input type="radio" name="log_type" value="setor" onchange="document.getElementById('div_emp').classList.add('hidden'); document.getElementById('div_sec').classList.remove('hidden');" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
+                                                <span class="font-medium text-gray-800">Setor Inteiro (Coletivo)</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Alvo do Lançamento -->
+                                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                        <label class="block text-sm font-bold text-blue-900 mb-2">2. Selecione o Alvo</label>
+                                        
+                                        <div id="div_emp">
+                                            <div class="relative mb-2">
+                                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                                    <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                                                </div>
+                                                <input type="text" id="log_emp_search" placeholder="Busca inteligente por nome..." onkeyup="app.filterLogEmp(this.value)" class="w-full pl-10 pr-4 py-3 text-lg border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white">
+                                            </div>
+                                            <select id="log_emp" size="5" class="w-full px-2 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner text-lg">
+                                                <option value="" class="hidden">Selecione...</option>
+                                                ${empOpts}
+                                            </select>
+                                        </div>
+
+                                        <div id="div_sec" class="hidden">
+                                            <p class="text-sm text-blue-800 mb-2 italic">O desconto será aplicado a todos os colaboradores vinculados ao setor selecionado.</p>
+                                            <select id="log_sec" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner text-lg">
+                                                <option value="">Selecione o setor penalizado...</option>
+                                                ${sectorOpts}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700 mb-1">3. Data da Ocorrência</label>
+                                            <input type="date" id="log_date" value="${today}" required class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700 mb-1">4. Critério (Erro/Falta)</label>
+                                            <select id="log_rule" required class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                                                <option value="">Selecione a ocorrência...</option>
+                                                ${ruleOpts}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-1">5. Observação / Justificativa (Opcional)</label>
+                                        <textarea id="log_obs" rows="2" placeholder="Descreva brevemente o motivo do desconto..." class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
+                                    </div>
+
+                                    <div class="pt-4">
+                                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors flex justify-center items-center text-lg">
+                                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Registrar Desconto
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     `;
@@ -1311,9 +1448,28 @@
                         const emps = grouped[sec.id];
                         if(!emps || emps.length === 0) return;
                         emps.sort((a,b)=>a.name.localeCompare(b.name));
+                        
                         const empsHtml = emps.map(emp => {
-                            const isChecked = state.hygieneChecks.some(hc => hc.employeeId === emp.id && hc.date === today);
-                            return `<div class="higiene-emp-row flex items-center justify-between p-4 border-b hover:bg-gray-50" data-name="${emp.name.toLowerCase()}"><span class="text-gray-800 font-medium text-lg">${emp.name}</span><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" class="sr-only peer" ${isChecked?'checked':''} onchange="app.toggleHygiene('${emp.id}','${today}',this.checked)"><div class="w-14 h-7 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div></label></div>`;
+                            const infraction = state.hygieneChecks.find(hc => hc.employeeId === emp.id && hc.date === today);
+                            const isChecked = !!infraction;
+                            const obsValue = infraction ? (infraction.obs || '') : '';
+
+                            return `
+                            <div class="higiene-emp-row flex flex-col p-4 border-b hover:bg-gray-50 transition-colors" data-name="${emp.name.toLowerCase()}">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-800 font-medium text-lg">${emp.name}</span>
+                                    <label class="relative inline-flex items-center cursor-pointer" title="Marcar como inadequado gerará penalidade (desconto)">
+                                        <span class="mr-3 text-sm font-bold ${isChecked ? 'text-red-500' : 'text-emerald-600'}">${isChecked ? 'Descontar!' : 'De Acordo'}</span>
+                                        <input type="checkbox" class="sr-only peer" ${isChecked?'checked':''} onchange="app.toggleHygiene('${emp.id}','${today}',this.checked)">
+                                        <div class="w-14 h-7 bg-emerald-400 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500"></div>
+                                    </label>
+                                </div>
+                                ${isChecked ? `
+                                <div class="mt-3 animate-[fadeIn_0.2s_ease-out]">
+                                    <input type="text" placeholder="Escreva aqui a ocorrência (ex: Unhas grandes, barba, etc)..." value="${obsValue}" onblur="app.updateHygieneObs('${emp.id}','${today}',this.value)" class="w-full text-sm px-4 py-2 border border-red-300 rounded-lg bg-red-50 focus:ring-2 focus:ring-red-500 outline-none text-red-900 placeholder-red-300">
+                                </div>
+                                ` : ''}
+                            </div>`;
                         }).join('');
                         sectorsHtml += `<div class="mb-6 sector-group shadow-sm rounded-xl overflow-hidden border border-slate-200"><h3 class="bg-slate-800 text-white px-5 py-3 font-bold text-lg"><i class="fa-solid fa-users mr-3 opacity-70"></i> ${sec.name}</h3><div class="bg-white">${empsHtml}</div></div>`;
                     });
@@ -1326,6 +1482,15 @@
                                 <input type="date" id="higiene_date" value="${today}" onchange="app.render()" class="px-3 py-1.5 border-none bg-gray-50 focus:ring-2 outline-none rounded w-full md:w-auto">
                             </div>
                         </div>
+                        
+                        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl mb-6 flex items-start">
+                            <i class="fa-solid fa-circle-info text-emerald-600 text-xl mr-3 mt-0.5"></i>
+                            <p class="text-sm text-emerald-900 leading-relaxed">
+                                <b>Por padrão, o sistema assume que todos estão de acordo.</b> 
+                                Você só precisa marcar as chaves vermelhas e preencher a ocorrência para quem for penalizado naquele dia. Isso poupa o seu tempo!
+                            </p>
+                        </div>
+
                         <div class="mb-8 relative">
                             <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-gray-400 text-lg"></i></div>
                             <input type="text" placeholder="Busca inteligente por nome..." onkeyup="app.filterHigiene(this.value)" class="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
@@ -1345,11 +1510,13 @@
                     `;
                 },
                 relatorios: () => {
-                    const months = [...new Set(state.logs.map(l => l.monthId)), getMonthId(new Date())].sort().reverse();
+                    const allMonthsFound = [...state.logs, ...state.hygieneChecks].map(l => l.monthId || getMonthId(new Date(l.date+'T12:00:00')));
+                    const months = [...new Set(allMonthsFound), getMonthId(new Date())].sort().reverse();
+                    
                     const selectedMonth = document.getElementById('report_month')?.value || months[0];
                     const monthOpts = months.map(m => `<option value="${m}" ${m===selectedMonth?'selected':''}>${m}</option>`).join('');
 
-                    const reportType = state.reportTab; // 'fechamento' or 'erros'
+                    const reportType = state.reportTab; 
 
                     let reportContent = '';
                     let pdfTitle = '';
@@ -1388,7 +1555,6 @@
                         reportContent = app.generateErrorLogsReportHtml(selectedMonth);
                     }
 
-                    // Formatar o mês por extenso
                     let mesExtenso = selectedMonth;
                     if (selectedMonth && selectedMonth.includes('-')) {
                         const [ano, mes] = selectedMonth.split('-');
@@ -1399,7 +1565,6 @@
                     const logoHtml = state.settings?.logo ? `<img src="${state.settings.logo}" class="print-logo">` : `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 no-print"><i class="fa-solid fa-image"></i></div>`;
 
                     return `
-                        <!-- Controles Superiores (Não imprimem) -->
                         <div class="no-print flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
                             <h2 class="text-2xl font-bold text-gray-800">Relatórios do RH</h2>
                             
@@ -1414,7 +1579,6 @@
                             </div>
                         </div>
 
-                        <!-- Abas de Navegação dos Relatórios -->
                         <div class="no-print flex space-x-2 mb-6 bg-gray-200 p-1 rounded-xl w-fit">
                             <button onclick="app.setReportTab('fechamento')" class="${reportType==='fechamento'?'bg-white shadow-sm text-blue-600 font-bold':'text-gray-600 hover:text-gray-800'} px-6 py-2.5 rounded-lg transition-all">
                                 <i class="fa-solid fa-file-invoice-dollar mr-2"></i> Fechamento Financeiro
@@ -1424,10 +1588,8 @@
                             </button>
                         </div>
 
-                        <!-- Container que será Impresso (iOS Style PDF) -->
                         <div class="print-card bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden mb-8 p-6">
                             
-                            <!-- Print Header (Visível sempre na web, estilizado no print) -->
                             <div class="print-header flex justify-between items-center border-b-2 border-gray-100 pb-6 mb-6">
                                 <div>
                                     <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Gratificação Mensal</h1>
@@ -1439,7 +1601,6 @@
                                 </div>
                             </div>
 
-                            <!-- Tabela ou Listagem -->
                             <div class="overflow-x-auto print-content">
                                 ${reportContent}
                             </div>

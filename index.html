@@ -853,7 +853,6 @@
                 }
             },
             showRuleForm: (id = null) => {
-                // Modificado para usar app.openModal corretamente
                 const rule = id ? state.rules.find(r => r.id === id) : {};
                 const pctVal = rule.pct !== undefined ? (rule.pct * 100).toFixed(2) : '';
                 const html = `
@@ -1250,9 +1249,9 @@
                             <td class="px-4 py-3 font-medium text-gray-800">${sec.name}</td>
                             <td class="px-4 py-3">${formatBRL(sec.val_liderado)}</td>
                             <td class="px-4 py-3">${formatBRL(sec.val_lider)}</td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap">
-                                <button onclick="app.showSectorForm('${sec.id}')" class="text-blue-500 hover:text-blue-700 mx-2"><i class="fa-solid fa-pen"></i></button>
-                                <button onclick="app.deleteSector('${sec.id}')" class="text-red-500 hover:text-red-700 mx-2"><i class="fa-solid fa-trash"></i></button>
+                            <td class="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
+                                <button onclick="app.showSectorForm('${sec.id}')" class="text-blue-500 hover:text-blue-700 mx-2 p-2 rounded hover:bg-blue-50 transition-colors"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="app.deleteSector('${sec.id}')" class="text-red-500 hover:text-red-700 mx-2 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>
                             </td>
                         </tr>
                     `).join('');
@@ -1262,43 +1261,47 @@
                             <td class="px-4 py-3 text-gray-800 font-medium">${rule.name}</td>
                             <td class="px-4 py-3 text-red-500 font-bold">-${formatPct(rule.pct)}</td>
                             <td class="px-4 py-3 text-gray-600 font-medium">Até ${rule.max}x</td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap">
-                                <button onclick="app.showRuleForm('${rule.id}')" class="text-blue-500 hover:text-blue-700 mx-1"><i class="fa-solid fa-pen"></i></button>
-                                ${rule.id !== 'higiene' ? `<button onclick="app.deleteRule('${rule.id}')" class="text-red-500 hover:text-red-700 mx-1"><i class="fa-solid fa-trash"></i></button>` : ''}
+                            <td class="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
+                                <button onclick="app.showRuleForm('${rule.id}')" class="text-blue-500 hover:text-blue-700 mx-1 p-2 rounded hover:bg-blue-50 transition-colors"><i class="fa-solid fa-pen"></i></button>
+                                ${rule.id !== 'higiene' ? `<button onclick="app.deleteRule('${rule.id}')" class="text-red-500 hover:text-red-700 mx-1 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>` : ''}
                             </td>
                         </tr>
                     `).join('');
 
                     return `
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
                             <!-- Setores -->
                             <div>
                                 <div class="flex justify-between items-center mb-4">
                                     <h2 class="text-xl font-bold text-gray-800">Setores</h2>
-                                    <button onclick="app.showSectorForm()" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium"><i class="fa-solid fa-plus mr-1"></i> Novo</button>
+                                    <button onclick="app.showSectorForm()" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium hover:bg-blue-700 transition-colors"><i class="fa-solid fa-plus mr-1"></i> Novo</button>
                                 </div>
                                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                    <table class="w-full text-left">
-                                        <thead class="bg-gray-50 border-b text-sm text-gray-500">
-                                            <tr><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Liderado</th><th class="px-4 py-3">Líder</th><th class="px-4 py-3 text-right">Ações</th></tr>
-                                        </thead>
-                                        <tbody>${secRows || '<tr><td colspan="4" class="text-center py-4">Nenhum setor.</td></tr>'}</tbody>
-                                    </table>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left">
+                                            <thead class="bg-gray-50 border-b text-sm text-gray-500">
+                                                <tr><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Liderado</th><th class="px-4 py-3">Líder</th><th class="px-4 py-3 text-right">Ações</th></tr>
+                                            </thead>
+                                            <tbody>${secRows || '<tr><td colspan="4" class="text-center py-4">Nenhum setor.</td></tr>'}</tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                             <!-- Regras -->
                             <div>
                                 <div class="flex justify-between items-center mb-4">
                                     <h2 class="text-xl font-bold text-gray-800">Regras de Desconto</h2>
-                                    <button onclick="app.showRuleForm()" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium"><i class="fa-solid fa-plus mr-1"></i> Nova Regra</button>
+                                    <button onclick="app.showRuleForm()" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium hover:bg-blue-700 transition-colors"><i class="fa-solid fa-plus mr-1"></i> Nova Regra</button>
                                 </div>
                                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                    <table class="w-full text-left">
-                                        <thead class="bg-gray-50 border-b text-sm text-gray-500">
-                                            <tr><th class="px-4 py-3">Critério</th><th class="px-4 py-3">% Desconto</th><th class="px-4 py-3">Limite</th><th class="px-4 py-3 text-right">Ações</th></tr>
-                                        </thead>
-                                        <tbody>${ruleRows || '<tr><td colspan="4" class="text-center py-4">Nenhuma regra.</td></tr>'}</tbody>
-                                    </table>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left">
+                                            <thead class="bg-gray-50 border-b text-sm text-gray-500">
+                                                <tr><th class="px-4 py-3">Critério</th><th class="px-4 py-3">% Desconto</th><th class="px-4 py-3">Limite</th><th class="px-4 py-3 text-right">Ações</th></tr>
+                                            </thead>
+                                            <tbody>${ruleRows || '<tr><td colspan="4" class="text-center py-4">Nenhuma regra.</td></tr>'}</tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>

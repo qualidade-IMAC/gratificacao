@@ -16,14 +16,28 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .hide-scroll::-webkit-scrollbar { display: none; }
-        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #e7e5e4; /* stone-200 fundo exterior */
+            color: #1c1917; /* stone-950 */
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #a8a29e; border-radius: 4px; }
+        
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px); }
+        
+        .animate-fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
         /* Loader */
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
+            border-top: 4px solid #eab308; /* yellow-500 */
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -39,181 +53,60 @@
                 -webkit-print-color-adjust: exact; 
                 print-color-adjust: exact; 
             }
-            aside, .no-print, #mobile-menu, .mobile-header, #login-screen { 
+            .no-print, #login-screen { 
                 display: none !important; 
             }
             #app-layout {
                 display: block !important;
-            }
-            main { 
-                padding: 0 !important; 
-                margin: 0 !important; 
-                overflow: visible !important; 
-                background-color: white !important;
-            }
-            #app-container {
-                padding: 0 !important;
-            }
-            .print-card { 
-                border-radius: 18px !important; 
-                border: 1px solid #d1d5db !important; 
-                padding: 24px !important; 
+                max-width: none !important;
                 box-shadow: none !important;
                 background-color: white !important;
             }
-            .print-header { 
-                display: flex !important; 
-                justify-content: space-between !important; 
-                align-items: center !important; 
-                border-bottom: 2px solid #f3f4f6 !important; 
-                padding-bottom: 16px !important; 
-                margin-bottom: 24px !important; 
-            }
-            .print-logo { 
-                max-height: 55px !important; 
-                border-radius: 12px !important; 
-                object-fit: contain;
-            }
-            .page-break-avoid {
-                page-break-inside: avoid;
+            .print-card { 
+                border-radius: 0 !important; 
+                border: none !important; 
+                padding: 0 !important; 
+                box-shadow: none !important;
             }
             table { border-collapse: collapse !important; width: 100% !important; }
             th { background-color: #f9fafb !important; color: #374151 !important; border-bottom: 2px solid #e5e7eb !important; }
             td { border-bottom: 1px solid #f3f4f6 !important; }
         }
     </style>
-
-    <!-- PWA Setup Dinâmico -->
-    <script>
-        const manifestData = {
-            name: "Gestão de Gratificações",
-            short_name: "Gratificações",
-            start_url: ".",
-            display: "standalone",
-            background_color: "#ffffff",
-            theme_color: "#3b82f6",
-            icons: [{
-                src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%233b82f6' d='M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z'/%3E%3C/svg%3E",
-                sizes: "512x512",
-                type: "image/svg+xml",
-                purpose: "any maskable"
-            }]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
-        const manifestUrl = URL.createObjectURL(manifestBlob);
-        document.write(`<link rel="manifest" href="${manifestUrl}">`);
-    </script>
 </head>
-<body class="h-screen w-screen overflow-hidden text-gray-800 bg-slate-50 relative">
+<body class="font-sans antialiased overflow-x-hidden">
 
     <!-- Loading Overlay -->
-    <div id="loading-overlay" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+    <div id="loading-overlay" class="fixed inset-0 bg-stone-100 z-50 flex flex-col items-center justify-center">
         <div class="loader mb-4"></div>
-        <h2 class="text-xl font-semibold text-gray-700">A verificar autenticação...</h2>
+        <h2 class="text-xl font-bold text-stone-700 animate-pulse">A carregar sistema...</h2>
     </div>
 
     <!-- Ecrã de Login -->
-    <div id="login-screen" class="hidden fixed inset-0 z-40 bg-slate-900 flex-col items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-2xl p-8 md:p-12 max-w-md w-full text-center animate-[fadeIn_0.4s_ease-out]">
-            <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <i class="fa-solid fa-hand-holding-dollar text-4xl text-blue-600"></i>
+    <div id="login-screen" class="hidden fixed inset-0 z-40 bg-stone-900 flex-col items-center justify-center p-4">
+        <div class="bg-stone-100 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center animate-fade-in">
+            <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fa-solid fa-medal text-4xl text-yellow-600"></i>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800 mb-2">Gestão de Gratificações</h1>
-            <p class="text-gray-500 mb-8 text-sm">Faça login com a sua conta para aceder ao painel administrativo.</p>
+            <h1 class="text-2xl font-bold text-stone-800 mb-2">Gestão de Gratificações</h1>
+            <p class="text-stone-500 mb-8 text-sm">Controle financeiro e de indicadores.</p>
             
-            <button id="btn-login-google" class="w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-bold py-3.5 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center space-x-3 mb-6">
+            <button id="btn-login-google" class="w-full bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 font-bold py-3.5 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center space-x-3 mb-4">
                 <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6" alt="Google">
                 <span>Aceder com Google</span>
             </button>
 
-            <button id="btn-login-anon" class="text-gray-400 hover:text-gray-600 text-xs font-medium underline transition-colors">
+            <button id="btn-login-anon" class="text-stone-400 hover:text-yellow-600 text-xs font-bold underline transition-colors">
                 Aceder como Visitante (Modo Teste)
             </button>
         </div>
-        <p class="text-slate-500 text-xs mt-8 text-center max-w-xs">Aplicação Segura Firebase &copy; 2026</p>
     </div>
 
-    <!-- Layout Principal -->
-    <div id="app-layout" class="hidden h-full w-full flex overflow-hidden">
-        
-        <!-- Menu Lateral (Sidebar) -->
-        <aside class="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20 hidden md:flex h-full no-print">
-            <div class="p-6 border-b border-slate-700 flex items-center space-x-3">
-                <i class="fa-solid fa-hand-holding-dollar text-2xl text-blue-400"></i>
-                <h1 class="text-lg font-bold leading-tight">Gestão de<br><span class="text-blue-400">Gratificações</span></h1>
-            </div>
-            <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto hide-scroll flex flex-col" id="sidebar-nav">
-                <!-- Nav Buttons will be handled by Event Delegation -->
-                <button data-nav="dashboard" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg bg-blue-600 text-white transition-colors">
-                    <i class="fa-solid fa-chart-pie w-5"></i><span>Visão Geral</span>
-                </button>
-                <button data-nav="colaboradores" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                    <i class="fa-solid fa-users w-5"></i><span>Colaboradores</span>
-                </button>
-                <button data-nav="setores" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                    <i class="fa-solid fa-sitemap w-5"></i><span>Setores e Regras</span>
-                </button>
-                <button data-nav="lancamentos" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                    <i class="fa-solid fa-clipboard-list w-5"></i><span>Lançar Faltas</span>
-                </button>
-                <button data-nav="higiene" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                    <i class="fa-solid fa-hands-bubbles w-5"></i><span>Higiene Pessoal</span>
-                </button>
-                <button data-nav="proporcionais" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                    <i class="fa-solid fa-calendar-day w-5"></i><span>Férias/Admissões</span>
-                </button>
-                <button data-nav="relatorios" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                    <i class="fa-solid fa-file-invoice-dollar w-5"></i><span>Relatórios (RH)</span>
-                </button>
-                <button data-nav="configuracoes" class="nav-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                    <i class="fa-solid fa-cog w-5"></i><span>Definições</span>
-                </button>
-
-                <div class="mt-auto pt-4 border-t border-slate-700">
-                    <button id="btn-logout" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500 hover:text-white transition-colors">
-                        <i class="fa-solid fa-arrow-right-from-bracket w-5"></i><span>Sair do Sistema</span>
-                    </button>
-                </div>
-            </nav>
-        </aside>
-
-        <!-- Cabeçalho Mobile -->
-        <div class="mobile-header md:hidden fixed top-0 w-full bg-slate-900 text-white p-4 flex justify-between items-center z-30 shadow-md no-print">
-            <div class="flex items-center space-x-2">
-                <i class="fa-solid fa-hand-holding-dollar text-xl text-blue-400"></i>
-                <h1 class="font-bold">Gratificações</h1>
-            </div>
-            <button id="btn-mobile-menu-open" class="text-2xl">
-                <i class="fa-solid fa-bars"></i>
-            </button>
-        </div>
-
-        <!-- Menu Mobile Overlay -->
-        <div id="mobile-menu" class="hidden md:hidden fixed inset-0 bg-slate-900 z-40 flex flex-col pt-16 no-print overflow-y-auto">
-            <button id="btn-mobile-menu-close" class="absolute top-4 right-4 text-3xl text-white">
-                <i class="fa-solid fa-times"></i>
-            </button>
-            <nav class="flex flex-col p-6 space-y-4 text-lg text-slate-300" id="mobile-nav">
-                <a href="#" data-nav="dashboard"><i class="fa-solid fa-chart-pie mr-3 w-6"></i> Visão Geral</a>
-                <a href="#" data-nav="colaboradores"><i class="fa-solid fa-users mr-3 w-6"></i> Colaboradores</a>
-                <a href="#" data-nav="setores"><i class="fa-solid fa-sitemap mr-3 w-6"></i> Setores e Regras</a>
-                <a href="#" data-nav="lancamentos"><i class="fa-solid fa-clipboard-list mr-3 w-6"></i> Lançamentos</a>
-                <a href="#" data-nav="higiene"><i class="fa-solid fa-hands-bubbles mr-3 w-6"></i> Higiene Pessoal</a>
-                <a href="#" data-nav="proporcionais"><i class="fa-solid fa-calendar-day mr-3 w-6"></i> Férias e Admissões</a>
-                <a href="#" data-nav="relatorios"><i class="fa-solid fa-file-invoice-dollar mr-3 w-6"></i> Relatórios</a>
-                <a href="#" data-nav="configuracoes"><i class="fa-solid fa-cog mr-3 w-6"></i> Definições</a>
-                
-                <a href="#" id="btn-mobile-logout" class="text-red-400 mt-6 border-t border-slate-700 pt-6"><i class="fa-solid fa-arrow-right-from-bracket mr-3 w-6"></i> Sair do Sistema</a>
-            </nav>
-        </div>
-
-        <!-- Conteúdo Principal -->
-        <main class="flex-1 h-full bg-slate-50 overflow-y-auto pt-16 md:pt-0 relative" id="main-content">
-            <div class="p-4 md:p-8 max-w-7xl mx-auto pb-24" id="app-container">
-                <!-- Conteúdo Dinâmico -->
-            </div>
+    <!-- Layout Principal - Expandido para Modo Paisagem (max-w-7xl) -->
+    <div id="app-layout" class="hidden max-w-7xl w-full mx-auto min-h-screen bg-stone-100 flex-col text-stone-900 shadow-2xl relative">
+        <main class="flex-1 w-full" id="app-container">
+            <!-- Conteúdo Dinâmico -->
         </main>
-        
     </div>
 
     <!-- Modais -->
@@ -241,6 +134,18 @@
         };
 
         let db, auth, appId, unsubscribeFuncs = [];
+
+        // Componente de Cabeçalho Padrão
+        const renderHeader = (title, showBack = true) => `
+            <header class="bg-white p-4 flex items-center justify-between sticky top-0 z-20 shadow-md border-b border-stone-200 no-print">
+                ${showBack 
+                    ? `<button data-nav="dashboard" class="text-sm font-bold text-stone-500 hover:text-yellow-600 transition-colors flex items-center"><i class="fa-solid fa-arrow-left mr-2"></i> Voltar</button>` 
+                    : `<div></div>`
+                }
+                <h1 class="font-bold text-yellow-600 text-center flex-1 text-lg">${title}</h1>
+                <div class="w-16"></div>
+            </header>
+        `;
 
         // Configuração Inicial do Firebase
         const initFirebase = async () => {
@@ -278,10 +183,12 @@
                         loginScreen.classList.add('hidden');
                         loginScreen.classList.remove('flex');
                         appLayout.classList.remove('hidden');
+                        appLayout.classList.add('flex');
                         setupListeners();
                     } else {
                         state.user = null;
                         appLayout.classList.add('hidden');
+                        appLayout.classList.remove('flex');
                         loginScreen.classList.remove('hidden');
                         loginScreen.classList.add('flex');
                     }
@@ -294,7 +201,6 @@
             }
         };
 
-        // Escutadores do Firestore em Tempo Real
         const setupListeners = () => {
             unsubscribeFuncs.forEach(unsub => unsub());
             const publicPath = `artifacts/${appId}/public/data`;
@@ -337,7 +243,6 @@
             }, (e) => console.error(e)));
         };
 
-        // Objeto Central da Aplicação (App) - Totalmente Encapsulado
         window.app = {
             generateId: () => {
                 return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
@@ -353,20 +258,19 @@
             formatPct: (val) => (Number(val) * 100).toFixed(2) + '%',
 
             toast: (msg, type = 'info') => {
-                const colors = { success: 'bg-emerald-500', error: 'bg-red-500', info: 'bg-blue-500' };
-                const icon = { success: 'fa-check-circle', error: 'fa-triangle-exclamation', info: 'fa-info-circle' };
+                const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-stone-600' };
+                const icon = { success: 'fa-check', error: 'fa-triangle-exclamation', info: 'fa-info-circle' };
                 const div = document.createElement('div');
-                div.className = `fixed bottom-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-xl shadow-lg flex items-center space-x-3 z-50 transition-opacity duration-300`;
-                div.innerHTML = `<i class="fa-solid ${icon[type]} text-xl"></i><span class="font-medium">${msg}</span>`;
+                div.className = `fixed top-4 right-4 ${colors[type]} text-white px-4 py-3 rounded-lg shadow-xl font-bold flex items-center space-x-2 z-50 animate-fade-in`;
+                div.innerHTML = `<i class="fa-solid ${icon[type]}"></i><span>${msg}</span>`;
                 document.body.appendChild(div);
-                setTimeout(() => div.classList.add('opacity-0'), 2500);
-                setTimeout(() => div.remove(), 2800);
+                setTimeout(() => div.remove(), 3000);
             },
 
             openModal: (html) => {
                 document.getElementById('modals').innerHTML = `
-                    <div class="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4 backdrop-blur-sm">
-                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+                    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
+                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in text-stone-900">
                             ${html}
                         </div>
                     </div>
@@ -380,11 +284,11 @@
             confirmAction: (msg, actionStr, dataId = '') => {
                 window.app.openModal(`
                     <div class="p-6 text-center">
-                        <i class="fa-solid fa-circle-exclamation text-5xl text-red-500 mb-4"></i>
-                        <p class="text-lg text-gray-800 font-medium mb-6 mt-4">${msg}</p>
-                        <div class="flex justify-center space-x-4">
-                            <button data-action="closeModal" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200">Cancelar</button>
-                            <button data-action="${actionStr}" data-id="${dataId}" class="px-5 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 shadow-sm">Confirmar</button>
+                        <i class="fa-solid fa-circle-exclamation text-4xl text-yellow-500 mb-4"></i>
+                        <p class="text-stone-800 font-bold mb-6">${msg}</p>
+                        <div class="flex gap-2 pt-2">
+                            <button data-action="closeModal" class="flex-1 py-3 border border-stone-300 rounded-lg font-bold text-stone-600 hover:bg-stone-50">Cancelar</button>
+                            <button data-action="${actionStr}" data-id="${dataId}" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700">Confirmar</button>
                         </div>
                     </div>
                 `);
@@ -394,10 +298,9 @@
                 const provider = new GoogleAuthProvider();
                 try {
                     await signInWithPopup(auth, provider);
-                    window.app.toast("Login realizado com sucesso!", "success");
+                    window.app.toast("Login com sucesso!", "success");
                 } catch (error) {
-                    console.error("Erro no login Google:", error);
-                    window.app.toast("Falha na autenticação: " + error.message, "error");
+                    window.app.toast("Falha na autenticação.", "error");
                 }
             },
 
@@ -406,7 +309,6 @@
                     window.app.toast("Entrando no modo teste...", "info");
                     await signInAnonymously(auth);
                 } catch (error) {
-                    console.error("Erro login anônimo:", error);
                     window.app.toast("Falha na autenticação anônima.", "error");
                 }
             },
@@ -416,114 +318,73 @@
                     await signOut(auth);
                     window.location.reload();
                 } catch (error) {
-                    console.error("Erro ao sair:", error);
                     window.app.toast("Erro ao desconectar.", "error");
                 }
             },
 
-            // --- Semeadura Inicial de Dados ---
             populateInitialSectors: async () => {
                 const initial = [
                     { id: 'salgado', name: 'Salgado', val_liderado: 180, val_lider: 250 },
-                    { id: 'ped', name: 'P&D', val_liderado: 180, val_lider: 250 },
-                    { id: 'expedicao_dia', name: 'Expedição Dia', val_liderado: 180, val_lider: 250 },
-                    { id: 'expedicao_noite', name: 'Expedição Noite', val_liderado: 180, val_lider: 250 }
+                    { id: 'ped', name: 'P&D', val_liderado: 180, val_lider: 250 }
                 ];
-                for (let sec of initial) {
-                    await setDoc(doc(db, `artifacts/${appId}/public/data/sectors`, sec.id), sec);
-                }
+                for (let sec of initial) await setDoc(doc(db, `artifacts/${appId}/public/data/sectors`, sec.id), sec);
             },
             
             populateInitialRules: async () => {
                 const initialRules = [
                     { id: 'produtividade', name: 'Produtividade', pct: 0.20, max: 1 },
-                    { id: 'qualidade', name: 'Qualidade do Produto', pct: 0.05, max: 3 },
-                    { id: 'pontualidade', name: 'Pontualidade/Assiduidade', pct: 0.05, max: 3 },
-                    { id: 'procedimentos', name: 'Cumprimento de Procedimentos', pct: 0.0333, max: 3 },
-                    { id: 'colaboracao', name: 'Colaboração/Trabalho em Equipe', pct: 0.0333, max: 3 },
-                    { id: 'perdas', name: 'Perdas e Desperdícios', pct: 0.0333, max: 3 },
-                    { id: 'auditoria', name: 'Auditoria BPF', pct: 0.10, max: 1 },
-                    { id: 'seguranca', name: 'Segurança no Trabalho', pct: 0.05, max: 1 },
-                    { id: 'dds', name: 'Participação DDS, Reuniões', pct: 0.05, max: 1 },
                     { id: 'higiene', name: 'Higiene Pessoal (Inadequada)', pct: 0.0333, max: 3 }
                 ];
-                for (let r of initialRules) {
-                    await setDoc(doc(db, `artifacts/${appId}/public/data/rules`, r.id), r);
-                }
+                for (let r of initialRules) await setDoc(doc(db, `artifacts/${appId}/public/data/rules`, r.id), r);
             },
 
-            // --- Navegação e Renderização ---
             navigate: (view) => {
                 state.view = view;
-                document.querySelectorAll('.nav-btn, #mobile-nav a').forEach(btn => {
-                    if (btn.dataset.nav === view) {
-                        btn.classList.remove('text-slate-300', 'hover:bg-slate-800');
-                        btn.classList.add('bg-blue-600', 'text-white');
-                    } else if(btn.classList.contains('nav-btn')) {
-                        btn.classList.add('text-slate-300', 'hover:bg-slate-800');
-                        btn.classList.remove('bg-blue-600', 'text-white');
-                    }
-                });
-                document.getElementById('mobile-menu').classList.add('hidden');
                 window.app.render();
+                window.scrollTo(0, 0);
             },
 
-            setReportTab: (tab) => {
-                state.reportTab = tab;
-                window.app.render();
-            },
-
-            setLogTab: (tab) => {
-                state.logTab = tab;
-                window.app.render();
-            },
+            setReportTab: (tab) => { state.reportTab = tab; window.app.render(); },
+            setLogTab: (tab) => { state.logTab = tab; window.app.render(); },
 
             render: () => {
                 const container = document.getElementById('app-container');
                 if(!container) return;
                 
+                let content = '';
                 switch (state.view) {
-                    case 'dashboard': container.innerHTML = window.app.views.dashboard(); break;
-                    case 'colaboradores': container.innerHTML = window.app.views.colaboradores(); break;
-                    case 'setores': container.innerHTML = window.app.views.setores(); break;
-                    case 'lancamentos': container.innerHTML = window.app.views.lancamentos(); break;
-                    case 'higiene': container.innerHTML = window.app.views.higiene(); break;
-                    case 'proporcionais': container.innerHTML = window.app.views.proporcionais(); break;
-                    case 'relatorios': container.innerHTML = window.app.views.relatorios(); break;
-                    case 'configuracoes': container.innerHTML = window.app.views.configuracoes(); break;
+                    case 'dashboard': content = window.app.views.dashboard(); break;
+                    case 'colaboradores': content = window.app.views.colaboradores(); break;
+                    case 'setores': content = window.app.views.setores(); break;
+                    case 'lancamentos': content = window.app.views.lancamentos(); break;
+                    case 'higiene': content = window.app.views.higiene(); break;
+                    case 'proporcionais': content = window.app.views.proporcionais(); break;
+                    case 'relatorios': content = window.app.views.relatorios(); break;
+                    case 'configuracoes': content = window.app.views.configuracoes(); break;
                 }
+                
+                container.innerHTML = content;
 
                 if (state.view === 'colaboradores') window.app.filterColaboradores();
                 if (state.view === 'lancamentos' && state.logTab === 'historico') window.app.renderLogsHistoryList();
             },
 
-            // --- Exposing Modals and Actions for Delegation ---
+            // Modais
             showImportModal: () => {
                 window.app.openModal(`
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-file-excel text-emerald-600 mr-2"></i> Importar Colaboradores</h2>
-                        <button data-action="closeModal" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                    <div class="p-4 border-b border-stone-200">
+                        <h2 class="text-lg font-bold text-yellow-600">Importar Planilha</h2>
                     </div>
                     <div class="p-6 space-y-4">
-                        <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-blue-900 leading-relaxed">
-                            <p class="font-bold mb-2">Instruções para a folha de cálculo (.xlsx ou .csv):</p>
-                            <ul class="list-disc pl-5 space-y-1 mb-2 font-medium">
-                                <li><b>Nome</b> (Nome do colaborador)</li>
-                                <li><b>Setor</b> (Ex: Salgado, P&D)</li>
-                                <li><b>Função/Cargo</b> (Líder ou Liderado)</li>
-                                <li><b>Valor</b> (Valor base, ex: 180)</li>
-                            </ul>
+                        <div class="bg-yellow-50 border border-yellow-200 p-3 rounded text-xs text-yellow-800">
+                            <strong>Colunas necessárias:</strong> Nome, Setor, Função/Cargo (Líder/Liderado), Valor Base.
                         </div>
-
-                        <div class="flex flex-col items-center justify-center w-full mt-4">
-                            <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-emerald-300 border-dashed rounded-xl cursor-pointer bg-emerald-50 hover:bg-emerald-100 transition-colors">
-                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-emerald-500 mb-2"></i>
-                                    <p class="text-sm font-semibold text-emerald-800">Selecionar Planilha</p>
-                                </div>
-                                <input id="dropzone-file" type="file" class="hidden" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
-                            </label>
-                        </div>
+                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
+                            <i class="fa-solid fa-upload text-2xl text-stone-400 mb-2"></i>
+                            <span class="text-sm font-bold text-stone-600">Selecionar Ficheiro (.xlsx)</span>
+                            <input id="dropzone-file" type="file" class="hidden" accept=".csv, .xlsx" />
+                        </label>
+                        <button data-action="closeModal" class="w-full py-3 mt-2 border border-stone-300 rounded-lg font-bold text-stone-600">Cancelar</button>
                     </div>
                 `);
             },
@@ -532,39 +393,37 @@
                 const emp = id && id !== 'null' ? state.employees.find(e => e.id === id) : {};
                 const sectorOpts = state.sectors.map(s => `<option value="${s.id}" ${emp.sectorId === s.id ? 'selected' : ''}>${s.name}</option>`).join('');
                 window.app.openModal(`
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800">${emp.id ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
-                        <button data-action="closeModal" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                    <div class="p-4 border-b border-stone-200">
+                        <h2 class="text-lg font-bold text-yellow-600">${emp.id ? 'Editar' : 'Novo'} Colaborador</h2>
                     </div>
                     <form id="form-employee" class="p-6 space-y-4">
                         <input type="hidden" id="emp_id" value="${emp.id || ''}">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Nome Completo</label>
-                            <input type="text" id="emp_name" value="${emp.name || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Nome Completo</label>
+                            <input type="text" id="emp_name" value="${emp.name || ''}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Setor</label>
-                                <select id="emp_sector" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                                    <option value="">Selecione...</option>
-                                    ${sectorOpts}
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Setor</label>
+                                <select id="emp_sector" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
+                                    <option value="">Selecione...</option>${sectorOpts}
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Cargo/Perfil</label>
-                                <select id="emp_role" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Perfil</label>
+                                <select id="emp_role" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                                     <option value="liderado" ${emp.role === 'liderado' ? 'selected' : ''}>Liderado</option>
                                     <option value="lider" ${emp.role === 'lider' ? 'selected' : ''}>Líder</option>
                                 </select>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Valor Base Personalizado (R$)</label>
-                            <input type="number" step="0.01" id="emp_custom_val" value="${emp.customBaseValue || ''}" placeholder="Vazio = Padrão do Setor" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                            <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Valor Personalizado (R$)</label>
+                            <input type="number" step="0.01" id="emp_custom_val" value="${emp.customBaseValue || ''}" placeholder="Vazio = Setor" class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                         </div>
-                        <div class="pt-4 flex justify-end space-x-3">
-                            <button type="button" data-action="closeModal" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" data-action="closeModal" class="flex-1 py-3 border border-stone-300 rounded-lg font-bold text-stone-600">Cancelar</button>
+                            <button type="submit" class="flex-1 py-3 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600">Salvar</button>
                         </div>
                     </form>
                 `);
@@ -573,29 +432,28 @@
             showSectorForm: (id = null) => {
                 const sec = id && id !== 'null' ? state.sectors.find(s => s.id === id) : {};
                 window.app.openModal(`
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800">${sec.id ? 'Editar Setor' : 'Novo Setor'}</h2>
-                        <button data-action="closeModal" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                    <div class="p-4 border-b border-stone-200">
+                        <h2 class="text-lg font-bold text-yellow-600">${sec.id ? 'Editar' : 'Novo'} Setor</h2>
                     </div>
                     <form id="form-sector" class="p-6 space-y-4">
                         <input type="hidden" id="sec_id" value="${sec.id || ''}">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Nome do Setor</label>
-                            <input type="text" id="sec_name" value="${sec.name || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Nome</label>
+                            <input type="text" id="sec_name" value="${sec.name || ''}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Valor Liderado (R$)</label>
-                                <input type="number" step="0.01" id="sec_val_liderado" value="${sec.val_liderado || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Val. Liderado</label>
+                                <input type="number" step="0.01" id="sec_val_liderado" value="${sec.val_liderado || ''}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Valor Líder (R$)</label>
-                                <input type="number" step="0.01" id="sec_val_lider" value="${sec.val_lider || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Val. Líder</label>
+                                <input type="number" step="0.01" id="sec_val_lider" value="${sec.val_lider || ''}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                         </div>
-                        <div class="pt-4 flex justify-end space-x-3">
-                            <button type="button" data-action="closeModal" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" data-action="closeModal" class="flex-1 py-3 border border-stone-300 rounded-lg font-bold text-stone-600">Cancelar</button>
+                            <button type="submit" class="flex-1 py-3 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600">Salvar</button>
                         </div>
                     </form>
                 `);
@@ -605,32 +463,28 @@
                 const rule = id && id !== 'null' ? state.rules.find(r => r.id === id) : {};
                 const pctVal = rule.pct !== undefined ? (rule.pct * 100).toFixed(2) : '';
                 window.app.openModal(`
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800">${rule.id ? 'Editar Critério' : 'Novo Critério'}</h2>
-                        <button data-action="closeModal" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                    <div class="p-4 border-b border-stone-200">
+                        <h2 class="text-lg font-bold text-yellow-600">${rule.id ? 'Editar' : 'Nova'} Regra</h2>
                     </div>
                     <form id="form-rule" class="p-6 space-y-4">
                         <input type="hidden" id="rule_id" value="${rule.id || ''}">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Nome do Critério</label>
-                            <input type="text" id="rule_name" value="${rule.name || ''}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                            <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Critério</label>
+                            <input type="text" id="rule_name" value="${rule.name || ''}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">% Desconto</label>
-                                <div class="relative">
-                                    <input type="number" step="0.01" id="rule_pct" value="${pctVal}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                                    <span class="absolute right-4 top-2.5 text-gray-400 font-bold">%</span>
-                                </div>
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">% Desconto</label>
+                                <input type="number" step="0.01" id="rule_pct" value="${pctVal}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Máx. Acúmulo</label>
-                                <input type="number" step="1" min="1" id="rule_max" value="${rule.max || 1}" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Máx Acúmulo</label>
+                                <input type="number" step="1" min="1" id="rule_max" value="${rule.max || 1}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                         </div>
-                        <div class="pt-4 flex justify-end space-x-3">
-                            <button type="button" data-action="closeModal" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" data-action="closeModal" class="flex-1 py-3 border border-stone-300 rounded-lg font-bold text-stone-600">Cancelar</button>
+                            <button type="submit" class="flex-1 py-3 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600">Salvar</button>
                         </div>
                     </form>
                 `);
@@ -640,32 +494,31 @@
                 const empOpts = state.employees.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
                 const currentMonth = window.app.getMonthId(new Date());
                 window.app.openModal(`
-                    <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                        <h2 class="text-xl font-bold text-gray-800">Registrar Férias/Admissão</h2>
-                        <button data-action="closeModal" class="text-gray-500 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+                    <div class="p-4 border-b border-stone-200">
+                        <h2 class="text-lg font-bold text-yellow-600">Férias / Admissão</h2>
                     </div>
                     <form id="form-proration" class="p-6 space-y-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Colaborador</label>
-                            <select id="pro_emp" required class="w-full px-4 py-2 border rounded-lg bg-white">${empOpts}</select>
+                            <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Colaborador</label>
+                            <select id="pro_emp" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">${empOpts}</select>
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Mês de Referência</label>
-                            <input type="month" id="pro_month" value="${currentMonth}" required class="w-full px-4 py-2 border rounded-lg">
+                            <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Mês Ref.</label>
+                            <input type="month" id="pro_month" value="${currentMonth}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Dias Trabalhados</label>
-                                <input type="number" min="0" max="31" id="pro_days" required class="w-full px-4 py-2 border rounded-lg">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Dias Trab.</label>
+                                <input type="number" min="0" max="31" id="pro_days" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Total Dias no Mês</label>
-                                <input type="number" min="28" max="31" id="pro_total" value="30" required class="w-full px-4 py-2 border rounded-lg">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Dias Mês</label>
+                                <input type="number" min="28" max="31" id="pro_total" value="30" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                         </div>
-                        <div class="pt-4 flex justify-end space-x-3">
-                            <button type="button" data-action="closeModal" class="px-5 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                            <button type="submit" class="px-5 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">Salvar</button>
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" data-action="closeModal" class="flex-1 py-3 border border-stone-300 rounded-lg font-bold text-stone-600">Cancelar</button>
+                            <button type="submit" class="flex-1 py-3 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600">Salvar</button>
                         </div>
                     </form>
                 `);
@@ -687,31 +540,37 @@
                     return 0;
                 });
 
-                const tbody = document.getElementById('colab_tbody');
-                if(!tbody) return;
+                const container = document.getElementById('colab_list');
+                if(!container) return;
 
-                const rows = filtered.map(emp => {
+                const items = filtered.map(emp => {
                     const sec = state.sectors.find(s => s.id === emp.sectorId);
-                    const roleName = emp.role === 'lider' ? '<span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-semibold">Líder</span>' : '<span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded font-semibold">Liderado</span>';
+                    const roleName = emp.role === 'lider' ? '<span class="text-[10px] bg-stone-200 px-2 py-0.5 rounded border border-stone-300 font-bold uppercase">Líder</span>' : '<span class="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded font-bold uppercase">Liderado</span>';
                     let baseVal = emp.customBaseValue ? emp.customBaseValue : (sec ? (emp.role === 'lider' ? sec.val_lider : sec.val_liderado) : 0);
                     const valDisplay = emp.customBaseValue 
-                        ? `<span class="text-emerald-600 font-bold" title="Personalizado">${window.app.formatBRL(baseVal)}</span>` 
-                        : `<span class="text-gray-500">${window.app.formatBRL(baseVal)}</span>`;
+                        ? `<span class="text-green-600 font-bold text-sm">${window.app.formatBRL(baseVal)} *</span>` 
+                        : `<span class="text-stone-700 font-bold text-sm">${window.app.formatBRL(baseVal)}</span>`;
 
                     return `
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium text-gray-800">${emp.name}</td>
-                            <td class="px-4 py-3 text-gray-600">${sec ? sec.name : 'N/A'}</td>
-                            <td class="px-4 py-3">${roleName}</td>
-                            <td class="px-4 py-3">${valDisplay}</td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap">
-                                <button data-action="showEmployeeForm" data-id="${emp.id}" class="text-blue-500 hover:text-blue-700 mx-2 p-2 rounded hover:bg-blue-50 transition-colors"><i class="fa-solid fa-pen"></i></button>
-                                <button data-action="deleteEmployee" data-id="${emp.id}" class="text-red-500 hover:text-red-700 mx-2 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>
-                            </td>
-                        </tr>
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center animate-fade-in">
+                            <div>
+                                <p class="font-bold text-stone-800 leading-tight">${emp.name}</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-xs text-stone-500">${sec ? sec.name : 'N/A'}</span>
+                                    ${roleName}
+                                </div>
+                            </div>
+                            <div class="text-right flex flex-col items-end gap-2">
+                                ${valDisplay}
+                                <div class="flex gap-2">
+                                    <button data-action="showEmployeeForm" data-id="${emp.id}" class="p-1.5 bg-stone-100 rounded text-stone-500 hover:text-yellow-600"><i class="fa-solid fa-pen"></i></button>
+                                    <button data-action="deleteEmployee" data-id="${emp.id}" class="p-1.5 bg-stone-100 rounded text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
                     `;
                 }).join('');
-                tbody.innerHTML = rows || '<tr><td colspan="5" class="text-center py-8 text-gray-500">Nenhum colaborador encontrado.</td></tr>';
+                container.innerHTML = items || '<div class="text-center p-6 text-stone-500">Nenhum encontrado.</div>';
             },
 
             filterLogEmp: (term) => {
@@ -758,8 +617,11 @@
                 const container = document.getElementById('log_history_container');
                 if (!container) return;
 
+                // Definindo as classes do grid aqui também
+                container.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8";
+
                 if (allRecords.length === 0) {
-                    container.innerHTML = '<div class="p-8 text-center text-gray-500 bg-white rounded-xl border border-gray-100 shadow-sm">Nenhum registo encontrado.</div>';
+                    container.innerHTML = '<div class="p-6 text-center text-stone-500 bg-white rounded-xl border border-stone-200 shadow-sm col-span-full">Nenhum registo encontrado.</div>';
                     return;
                 }
 
@@ -768,271 +630,292 @@
                     const sec = state.sectors.find(s => s.id === emp?.sectorId);
                     const rule = state.rules.find(r => r.id === log.ruleId);
                     const dateStr = log.date ? log.date.split('-').reverse().join('/') : '--';
-                    const obsSnippet = log.obs ? `<p class="text-sm text-gray-600 mt-2 bg-gray-50 p-2 rounded border border-gray-100"><i class="fa-solid fa-comment-dots text-gray-400 mr-1"></i> ${log.obs}</p>` : '';
+                    const obsSnippet = log.obs ? `<div class="text-xs text-stone-600 bg-stone-50 p-2 rounded border border-stone-200 mt-2 italic">Obs: ${log.obs}</div>` : '';
                     const deleteAction = log.isHygiene ? 'deleteHygieneRecord' : 'deleteLog';
 
                     return `
-                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow mb-3 flex flex-col md:flex-row justify-between md:items-center gap-4">
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between mb-1">
-                                    <h4 class="font-bold text-gray-800 text-lg">${emp ? emp.name : 'Desconhecido'}</h4>
-                                    <span class="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${dateStr}</span>
-                                </div>
-                                <div class="flex items-center space-x-2 text-sm">
-                                    <span class="text-slate-600 font-medium"><i class="fa-solid fa-sitemap opacity-50 mr-1"></i> ${sec ? sec.name : 'Geral'}</span>
-                                    <span class="text-gray-300">|</span>
-                                    <span class="text-red-600 font-bold">${rule ? rule.name : 'Infração'}</span>
+                        <div class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm animate-fade-in relative flex flex-col justify-between">
+                            <button data-action="${deleteAction}" data-id="${log.id}" class="absolute top-4 right-4 text-red-500 bg-stone-100 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                            <div class="pr-10">
+                                <span class="text-[10px] font-bold text-stone-400 uppercase"><i class="fa-solid fa-calendar mr-1"></i> ${dateStr}</span>
+                                <h4 class="font-bold text-stone-800 text-sm mt-1">${emp ? emp.name : 'Desconhecido'}</h4>
+                                <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span class="text-[10px] bg-stone-100 border px-1.5 rounded text-stone-500">${sec ? sec.name : 'Geral'}</span>
+                                    <span class="text-xs font-bold text-red-600">${rule ? rule.name : 'Infração'}</span>
                                 </div>
                                 ${obsSnippet}
-                            </div>
-                            <div class="flex items-center md:flex-col md:justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4">
-                                <button data-action="${deleteAction}" data-id="${log.id}" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg font-medium transition-colors flex items-center w-full md:w-auto justify-center">
-                                    <i class="fa-solid fa-trash mr-2"></i> Excluir
-                                </button>
                             </div>
                         </div>
                     `;
                 }).join('');
             },
 
-            // --- VIEWS ---
+            // VIEWS (Estilo Paisagem / Responsivo Wide)
             views: {
                 dashboard: () => {
                     const monthId = window.app.getMonthId(new Date());
-                    const report = window.app.calculateMonthlyReport ? window.app.calculateMonthlyReport(monthId) : [];
-                    const totalPay = report.reduce((sum, r) => sum + r.finalValue, 0);
-                    const totalErrors = state.logs.filter(l => l.monthId === monthId).length + 
-                                        state.hygieneChecks.filter(h => (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId)).length;
+                    let totalPay = 0, totalErrors = 0;
+                    
+                    if (window.app.calculateMonthlyReport) {
+                        const report = window.app.calculateMonthlyReport(monthId);
+                        totalPay = report.reduce((sum, r) => sum + r.finalValue, 0);
+                        totalErrors = state.logs.filter(l => l.monthId === monthId).length + 
+                                      state.hygieneChecks.filter(h => (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId)).length;
+                    }
 
                     return `
-                        <h3 class="text-gray-800 text-xl font-bold mb-4">Visão Geral - ${monthId}</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <div class="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-blue-500">
-                                <p class="text-sm text-gray-500 font-semibold mb-1">Total de Colaboradores</p>
-                                <p class="text-3xl font-bold text-gray-800">${state.employees.length}</p>
+                        <header class="bg-gradient-to-b from-yellow-500 to-yellow-600 text-stone-900 p-6 rounded-b-3xl shadow-lg mb-6 relative border-b border-yellow-600/30">
+                            <div class="absolute top-6 right-6 flex gap-2">
+                                <button data-action="logout" class="p-2 bg-white/30 rounded-full hover:bg-white/50 text-stone-900 transition-colors"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
                             </div>
-                            <div class="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-emerald-500">
-                                <p class="text-sm text-gray-500 font-semibold mb-1">Previsão de Pagamento</p>
-                                <p class="text-3xl font-bold text-gray-800">${window.app.formatBRL(totalPay)}</p>
+                            
+                            <div class="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
+                                <div class="mb-2 md:mb-0">
+                                    ${state.settings?.logo ? `<img src="${state.settings.logo}" class="h-16 object-contain mb-2 drop-shadow-md">` : `<h1 class="text-2xl font-bold text-stone-900"><i class="fa-solid fa-hand-holding-dollar mr-2"></i>Gratificações</h1>`}
+                                    <p class="text-stone-800 text-sm font-medium">Gestão Financeira e Indicadores</p>
+                                </div>
+                                <div class="bg-white/90 backdrop-blur-md p-4 rounded-xl border border-yellow-200 shadow-sm flex gap-8 items-center w-full md:w-auto">
+                                    <div>
+                                        <p class="text-stone-600 text-xs font-bold uppercase">Previsão ${monthId}</p>
+                                        <p class="text-xl font-black text-yellow-600">${window.app.formatBRL(totalPay)}</p>
+                                    </div>
+                                    <div class="text-right border-l pl-8 border-stone-200">
+                                        <p class="text-stone-600 text-xs font-bold uppercase">Ocorrências</p>
+                                        <p class="text-xl font-black text-red-600">${totalErrors}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-red-500">
-                                <p class="text-sm text-gray-500 font-semibold mb-1">Erros Registados (Mês)</p>
-                                <p class="text-3xl font-bold text-gray-800">${totalErrors}</p>
+                        </header>
+                        
+                        <main class="px-6 pb-8 animate-fade-in">
+                            <h3 class="text-sm font-bold text-stone-500 uppercase mb-4 ml-1">Módulos do Sistema</h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <button data-nav="colaboradores" class="w-full p-4 rounded-xl flex items-center justify-between bg-white border border-stone-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-10 w-10 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center text-lg"><i class="fa-solid fa-users"></i></div>
+                                        <div class="text-left"><p class="font-bold text-stone-800">Colaboradores</p><p class="text-xs text-stone-500">${state.employees.length} cadastrados</p></div>
+                                    </div>
+                                    <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
+
+                                <button data-nav="setores" class="w-full p-4 rounded-xl flex items-center justify-between bg-white border border-stone-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-10 w-10 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center text-lg"><i class="fa-solid fa-sitemap"></i></div>
+                                        <div class="text-left"><p class="font-bold text-stone-800">Setores e Regras</p><p class="text-xs text-stone-500">Valores e Critérios</p></div>
+                                    </div>
+                                    <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
+
+                                <button data-nav="lancamentos" class="w-full p-4 rounded-xl flex items-center justify-between bg-white border border-stone-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-10 w-10 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center text-lg"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                                        <div class="text-left"><p class="font-bold text-stone-800">Ocorrências</p><p class="text-xs text-stone-500">Registar faltas e erros</p></div>
+                                    </div>
+                                    <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
+
+                                <button data-nav="higiene" class="w-full p-4 rounded-xl flex items-center justify-between bg-white border border-stone-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-10 w-10 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center text-lg"><i class="fa-solid fa-hands-bubbles"></i></div>
+                                        <div class="text-left"><p class="font-bold text-stone-800">Higiene Pessoal</p><p class="text-xs text-stone-500">Inspeção diária</p></div>
+                                    </div>
+                                    <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
+
+                                <button data-nav="proporcionais" class="w-full p-4 rounded-xl flex items-center justify-between bg-white border border-stone-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-10 w-10 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center text-lg"><i class="fa-solid fa-calendar-day"></i></div>
+                                        <div class="text-left"><p class="font-bold text-stone-800">Férias / Admissões</p><p class="text-xs text-stone-500">Cálculo proporcional</p></div>
+                                    </div>
+                                    <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
+
+                                <button data-nav="relatorios" class="w-full p-4 rounded-xl flex items-center justify-between bg-yellow-50 border border-yellow-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-10 w-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-lg"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                                        <div class="text-left"><p class="font-bold text-yellow-800">Relatórios de Fecho</p><p class="text-xs text-yellow-600">Exportar PDFs para RH</p></div>
+                                    </div>
+                                    <span class="text-yellow-500"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
+                                
+                                <button data-nav="configuracoes" class="w-full p-4 rounded-xl flex items-center justify-between bg-stone-200/50 border border-stone-200 shadow-sm active:scale-95 transition-all lg:col-span-3">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-8 w-8 rounded-full bg-stone-300 text-stone-600 flex items-center justify-center"><i class="fa-solid fa-cog"></i></div>
+                                        <div class="text-left"><p class="font-bold text-stone-700 text-sm">Definições e Backup</p></div>
+                                    </div>
+                                    <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
                             </div>
-                        </div>
+                        </main>
                     `;
                 },
                 colaboradores: () => {
                     return `
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-                            <h2 class="text-2xl font-bold text-gray-800">Colaboradores</h2>
-                            <div class="flex space-x-3 w-full md:w-auto">
-                                <button data-action="showImportModal" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors flex justify-center items-center">
-                                    <i class="fa-solid fa-file-import mr-2"></i> Importar Planilha
-                                </button>
-                                <button data-action="showEmployeeForm" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm flex justify-center items-center">
-                                    <i class="fa-solid fa-plus mr-2"></i> Novo
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row gap-4 items-center">
-                            <div class="relative flex-1 w-full">
-                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-gray-400"></i></div>
-                                <input type="text" id="search_colab" placeholder="Buscar por nome..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                            </div>
-                            <div class="flex items-center w-full md:w-auto">
-                                <label class="text-sm font-semibold text-gray-600 mr-2 whitespace-nowrap">Ordenar:</label>
-                                <select id="sort_colab" class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
-                                    <option value="name_asc">Nome (A-Z)</option>
-                                    <option value="name_desc">Nome (Z-A)</option>
+                        ${renderHeader('Colaboradores')}
+                        <div class="p-6 pb-24">
+                            <div class="flex flex-col md:flex-row gap-4 mb-6">
+                                <div class="relative flex-1">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400"><i class="fa-solid fa-search"></i></div>
+                                    <input type="text" id="search_colab" placeholder="Buscar..." class="w-full pl-10 p-3 bg-white border border-stone-300 rounded-xl text-stone-800 outline-none focus:border-yellow-500 text-sm">
+                                </div>
+                                <select id="sort_colab" class="p-3 bg-white border border-stone-300 rounded-xl outline-none focus:border-yellow-500 text-sm text-stone-600 w-full md:w-48">
+                                    <option value="name_asc">A-Z</option>
                                     <option value="sec_asc">Agrupar por Setor</option>
                                 </select>
+                                <div class="flex gap-2 w-full md:w-auto">
+                                    <button data-action="showImportModal" class="flex-1 md:flex-none px-6 py-3 border border-stone-300 bg-white rounded-xl text-stone-600 font-bold text-sm shadow-sm flex justify-center items-center gap-2 hover:bg-stone-50"><i class="fa-solid fa-file-excel"></i> Importar</button>
+                                    <button data-action="showEmployeeForm" class="flex-1 md:flex-none px-6 py-3 bg-yellow-500 text-white rounded-xl font-bold text-sm shadow-sm flex justify-center items-center gap-2 hover:bg-yellow-600"><i class="fa-solid fa-plus"></i> Novo</button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left">
-                                    <thead>
-                                        <tr class="bg-gray-50 text-gray-500 text-sm border-b">
-                                            <th class="px-4 py-3">Nome</th>
-                                            <th class="px-4 py-3">Setor</th>
-                                            <th class="px-4 py-3">Perfil</th>
-                                            <th class="px-4 py-3">Valor Base</th>
-                                            <th class="px-4 py-3 text-right">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="colab_tbody"></tbody>
-                                </table>
-                            </div>
+                            <div id="colab_list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                         </div>
                     `;
                 },
                 setores: () => {
-                    const secRows = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(sec => `
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium text-gray-800">${sec.name}</td>
-                            <td class="px-4 py-3">${window.app.formatBRL(sec.val_liderado)}</td>
-                            <td class="px-4 py-3">${window.app.formatBRL(sec.val_lider)}</td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
-                                <button data-action="showSectorForm" data-id="${sec.id}" class="text-blue-500 hover:text-blue-700 mx-2 p-2 rounded hover:bg-blue-50 transition-colors"><i class="fa-solid fa-pen"></i></button>
-                                <button data-action="deleteSector" data-id="${sec.id}" class="text-red-500 hover:text-red-700 mx-2 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>
-                            </td>
-                        </tr>
+                    const secList = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(sec => `
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center">
+                            <div>
+                                <p class="font-bold text-stone-800">${sec.name}</p>
+                                <p class="text-[10px] text-stone-500 uppercase font-bold mt-1">Liderado: <span class="text-stone-700">${window.app.formatBRL(sec.val_liderado)}</span> | Líder: <span class="text-stone-700">${window.app.formatBRL(sec.val_lider)}</span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button data-action="showSectorForm" data-id="${sec.id}" class="p-1.5 bg-stone-100 rounded text-stone-500 hover:text-yellow-600"><i class="fa-solid fa-pen"></i></button>
+                                <button data-action="deleteSector" data-id="${sec.id}" class="p-1.5 bg-stone-100 rounded text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
                     `).join('');
                     
-                    const ruleRows = state.rules.map(rule => `
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="px-4 py-3 text-gray-800 font-medium">${rule.name}</td>
-                            <td class="px-4 py-3 text-red-500 font-bold">-${window.app.formatPct(rule.pct)}</td>
-                            <td class="px-4 py-3 text-gray-600 font-medium">Até ${rule.max}x</td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap min-w-[100px]">
-                                <button data-action="showRuleForm" data-id="${rule.id}" class="text-blue-500 hover:text-blue-700 mx-1 p-2 rounded hover:bg-blue-50 transition-colors"><i class="fa-solid fa-pen"></i></button>
-                                ${rule.id !== 'higiene' ? `<button data-action="deleteRule" data-id="${rule.id}" class="text-red-500 hover:text-red-700 mx-1 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>` : ''}
-                            </td>
-                        </tr>
+                    const ruleList = state.rules.map(rule => `
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center">
+                            <div class="flex-1 pr-2">
+                                <p class="font-bold text-stone-800 text-sm leading-tight">${rule.name}</p>
+                                <div class="flex gap-2 mt-2">
+                                    <span class="text-[10px] bg-red-100 text-red-700 px-1.5 rounded font-bold border border-red-200">-${window.app.formatPct(rule.pct)}</span>
+                                    <span class="text-[10px] bg-stone-100 text-stone-500 px-1.5 rounded border border-stone-200">Máx ${rule.max}x</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 flex-col md:flex-row">
+                                <button data-action="showRuleForm" data-id="${rule.id}" class="p-1.5 bg-stone-100 rounded text-stone-500 hover:text-yellow-600 text-xs text-center"><i class="fa-solid fa-pen"></i></button>
+                                ${rule.id !== 'higiene' ? `<button data-action="deleteRule" data-id="${rule.id}" class="p-1.5 bg-stone-100 rounded text-red-500 hover:text-red-700 text-xs text-center"><i class="fa-solid fa-trash"></i></button>` : ''}
+                            </div>
+                        </div>
                     `).join('');
 
                     return `
-                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        ${renderHeader('Setores e Regras')}
+                        <div class="p-6 pb-24 grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
                             <div>
                                 <div class="flex justify-between items-center mb-4">
-                                    <h2 class="text-xl font-bold text-gray-800">Setores</h2>
-                                    <button data-action="showSectorForm" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium hover:bg-blue-700 transition-colors"><i class="fa-solid fa-plus mr-1"></i> Novo</button>
+                                    <h2 class="text-sm font-bold text-stone-500 uppercase"><i class="fa-solid fa-sitemap mr-1"></i> Setores</h2>
+                                    <button data-action="showSectorForm" class="text-xs bg-stone-200 text-stone-700 px-4 py-2 rounded font-bold hover:bg-stone-300">Novo Setor</button>
                                 </div>
-                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                    <div class="overflow-x-auto">
-                                        <table class="w-full text-left">
-                                            <thead class="bg-gray-50 border-b text-sm text-gray-500">
-                                                <tr><th class="px-4 py-3">Setor</th><th class="px-4 py-3">Liderado</th><th class="px-4 py-3">Líder</th><th class="px-4 py-3 text-right">Ações</th></tr>
-                                            </thead>
-                                            <tbody>${secRows || '<tr><td colspan="4" class="text-center py-4">Nenhum setor.</td></tr>'}</tbody>
-                                        </table>
-                                    </div>
-                                </div>
+                                <div class="grid gap-3">${secList || '<p class="text-center text-stone-400 py-4 text-sm">Nenhum setor.</p>'}</div>
                             </div>
+                            
                             <div>
                                 <div class="flex justify-between items-center mb-4">
-                                    <h2 class="text-xl font-bold text-gray-800">Regras de Desconto</h2>
-                                    <button data-action="showRuleForm" class="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm font-medium hover:bg-blue-700 transition-colors"><i class="fa-solid fa-plus mr-1"></i> Nova Regra</button>
+                                    <h2 class="text-sm font-bold text-stone-500 uppercase"><i class="fa-solid fa-list-check mr-1"></i> Regras de Desconto</h2>
+                                    <button data-action="showRuleForm" class="text-xs bg-stone-200 text-stone-700 px-4 py-2 rounded font-bold hover:bg-stone-300">Nova Regra</button>
                                 </div>
-                                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                    <div class="overflow-x-auto">
-                                        <table class="w-full text-left">
-                                            <thead class="bg-gray-50 border-b text-sm text-gray-500">
-                                                <tr><th class="px-4 py-3">Critério</th><th class="px-4 py-3">% Desconto</th><th class="px-4 py-3">Limite</th><th class="px-4 py-3 text-right">Ações</th></tr>
-                                            </thead>
-                                            <tbody>${ruleRows || '<tr><td colspan="4" class="text-center py-4">Nenhuma regra.</td></tr>'}</tbody>
-                                        </table>
-                                    </div>
-                                </div>
+                                <div class="grid gap-3">${ruleList || '<p class="text-center text-stone-400 py-4 text-sm">Nenhuma regra.</p>'}</div>
                             </div>
                         </div>
                     `;
                 },
                 lancamentos: () => {
                     const activeTab = state.logTab || 'novo';
-                    const tabSelector = `
-                        <div class="flex space-x-2 mb-6 bg-gray-200 p-1 rounded-xl w-fit">
-                            <button data-action="setLogTab" data-id="novo" class="${activeTab==='novo'?'bg-white shadow-sm text-blue-600 font-bold':'text-gray-600 hover:text-gray-800'} px-6 py-2.5 rounded-lg transition-all">
-                                <i class="fa-solid fa-plus-circle mr-2"></i> Novo Lançamento
-                            </button>
-                            <button data-action="setLogTab" data-id="historico" class="${activeTab==='historico'?'bg-white shadow-sm text-blue-600 font-bold':'text-gray-600 hover:text-gray-800'} px-6 py-2.5 rounded-lg transition-all">
-                                <i class="fa-solid fa-clock-rotate-left mr-2"></i> Consultar Histórico
-                            </button>
-                        </div>
-                    `;
-
+                    
+                    let content = '';
                     if (activeTab === 'historico') {
                         const monthOpts = [...new Set([...state.logs, ...state.hygieneChecks].map(l => l.monthId||window.app.getMonthId(new Date(l.date+'T12:00:00')))), window.app.getMonthId(new Date())].sort().reverse().map(m => `<option value="${m}">${m}</option>`).join('');
                         const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
-                        return `
-                            <h2 class="text-2xl font-bold text-gray-800 mb-6">Controlo de Ocorrências</h2>
-                            ${tabSelector}
-                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-                                <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Filtros de Pesquisa</h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label class="block text-sm font-semibold text-gray-600 mb-1">Mês de Referência:</label>
-                                        <select id="hist_month" class="w-full px-4 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">${monthOpts}</select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-semibold text-gray-600 mb-1">Filtrar por Setor:</label>
-                                        <select id="hist_sec" class="w-full px-4 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"><option value="">Todos os Setores</option>${sectorOpts}</select>
-                                    </div>
+                        content = `
+                            <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 mb-6 animate-fade-in">
+                                <h3 class="text-xs font-bold text-stone-500 uppercase mb-3"><i class="fa-solid fa-search"></i> Filtros de Pesquisa</h3>
+                                <div class="flex flex-col md:flex-row gap-4">
+                                    <select id="hist_month" class="w-full md:w-1/2 p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-stone-50">${monthOpts}</select>
+                                    <select id="hist_sec" class="w-full md:w-1/2 p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-stone-50"><option value="">Todos os Setores</option>${sectorOpts}</select>
                                 </div>
                             </div>
-                            <div id="log_history_container"></div>
+                            <div id="log_history_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8"></div>
                         `;
-                    }
+                    } else {
+                        const empOpts = state.employees.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+                        const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                        const ruleOpts = state.rules.filter(r => r.id !== 'higiene').map(r => `<option value="${r.id}">${r.name} (-${window.app.formatPct(r.pct)})</option>`).join('');
+                        const today = new Date().toISOString().split('T')[0];
 
-                    const empOpts = state.employees.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => `<option value="${e.id}" class="py-2 border-b border-gray-50">${e.name}</option>`).join('');
-                    const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-                    const ruleOpts = state.rules.filter(r => r.id !== 'higiene').map(r => `<option value="${r.id}">${r.name} (-${window.app.formatPct(r.pct)})</option>`).join('');
-                    const today = new Date().toISOString().split('T')[0];
-
-                    return `
-                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Controlo de Ocorrências</h2>
-                        ${tabSelector}
-                        <div class="max-w-4xl mx-auto">
-                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
+                        content = `
+                            <div class="bg-white rounded-xl shadow-sm border border-stone-200 p-6 max-w-4xl mx-auto animate-fade-in">
                                 <form id="log_form" class="space-y-6">
-                                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                        <label class="block text-sm font-bold text-gray-700 mb-3">1. Tipo de Lançamento</label>
-                                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-6">
-                                            <label class="flex items-center space-x-2 cursor-pointer">
-                                                <input type="radio" name="log_type" value="individual" checked class="w-5 h-5 text-blue-600 focus:ring-blue-500">
-                                                <span class="font-medium text-gray-800">Colaborador (Individual)</span>
-                                            </label>
-                                            <label class="flex items-center space-x-2 cursor-pointer">
-                                                <input type="radio" name="log_type" value="setor" class="w-5 h-5 text-blue-600 focus:ring-blue-500">
-                                                <span class="font-medium text-gray-800">Setor Inteiro (Coletivo)</span>
-                                            </label>
-                                        </div>
+                                    <div class="bg-stone-50 p-4 rounded-xl border border-stone-200 flex flex-col sm:flex-row gap-6">
+                                        <label class="flex items-center gap-3 cursor-pointer flex-1 justify-center sm:justify-start">
+                                            <input type="radio" name="log_type" value="individual" checked class="w-5 h-5 text-yellow-600 focus:ring-yellow-500">
+                                            <span class="text-sm font-bold text-stone-700 uppercase">Colaborador (Individual)</span>
+                                        </label>
+                                        <label class="flex items-center gap-3 cursor-pointer flex-1 justify-center sm:justify-start">
+                                            <input type="radio" name="log_type" value="setor" class="w-5 h-5 text-yellow-600 focus:ring-yellow-500">
+                                            <span class="text-sm font-bold text-stone-700 uppercase">Setor Inteiro (Coletivo)</span>
+                                        </label>
                                     </div>
-                                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                        <label class="block text-sm font-bold text-blue-900 mb-2">2. Selecione o Alvo</label>
-                                        <div id="div_emp">
-                                            <div class="relative mb-2">
-                                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-gray-400"></i></div>
-                                                <input type="text" id="log_emp_search" placeholder="Pesquisar colaborador..." class="w-full pl-10 pr-4 py-3 text-lg border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white">
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div id="div_emp" class="space-y-2">
+                                            <label class="block text-xs font-bold text-stone-500 uppercase">Alvo: Colaborador</label>
+                                            <div class="relative">
+                                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400"><i class="fa-solid fa-search"></i></div>
+                                                <input type="text" id="log_emp_search" placeholder="Buscar..." class="w-full pl-9 p-3 text-sm border border-stone-300 rounded-t-lg outline-none focus:border-yellow-500 bg-white">
                                             </div>
-                                            <select id="log_emp" size="5" class="w-full px-2 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner text-lg">
+                                            <select id="log_emp" size="5" class="w-full p-2 text-sm border border-t-0 border-stone-300 rounded-b-lg outline-none bg-stone-50 shadow-inner">
                                                 <option value="" class="hidden">Selecione...</option>${empOpts}
                                             </select>
                                         </div>
-                                        <div id="div_sec" class="hidden">
-                                            <p class="text-sm text-blue-800 mb-2 italic">A penalidade será aplicada a todos os colaboradores vinculados ao setor selecionado.</p>
-                                            <select id="log_sec" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner text-lg">
+
+                                        <div id="div_sec" class="hidden space-y-2">
+                                            <label class="block text-xs font-bold text-stone-500 uppercase">Alvo: Setor</label>
+                                            <select id="log_sec" class="w-full p-4 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white shadow-inner">
                                                 <option value="">Selecione o setor...</option>${sectorOpts}
                                             </select>
+                                            <p class="text-[10px] text-red-500 font-bold italic mt-2">Atenção: A penalidade será aplicada a todos os colaboradores vinculados ao setor selecionado.</p>
                                         </div>
-                                    </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-1">3. Data da Ocorrência</label>
-                                            <input type="date" id="log_date" value="${today}" required class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+
+                                        <div class="space-y-6">
+                                            <div>
+                                                <label class="block text-xs font-bold text-stone-500 uppercase mb-2">Data e Ocorrência</label>
+                                                <div class="flex gap-4 mb-4">
+                                                    <input type="date" id="log_date" value="${today}" required class="w-1/3 p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white">
+                                                    <select id="log_rule" required class="flex-1 p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white">
+                                                        <option value="">Selecione a Infração...</option>${ruleOpts}
+                                                    </select>
+                                                </div>
+                                                
+                                                <label class="block text-xs font-bold text-stone-500 uppercase mb-2">Observação (Opcional)</label>
+                                                <textarea id="log_obs" rows="3" placeholder="Descreva os detalhes..." class="w-full p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white resize-none"></textarea>
+                                            </div>
+                                            
+                                            <button type="submit" class="w-full py-4 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Registar Penalidade
+                                            </button>
                                         </div>
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-1">4. Critério (Erro/Falta)</label>
-                                            <select id="log_rule" required class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                                                <option value="">Selecione a ocorrência...</option>${ruleOpts}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-1">5. Observação (Opcional)</label>
-                                        <textarea id="log_obs" rows="2" placeholder="Descreva o motivo do desconto..." class="w-full px-4 py-3 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
-                                    </div>
-                                    <div class="pt-4">
-                                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors flex justify-center items-center text-lg">
-                                            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Registar Desconto
-                                        </button>
                                     </div>
                                 </form>
                             </div>
+                        `;
+                    }
+
+                    return `
+                        ${renderHeader('Gestão de Ocorrências')}
+                        <div class="flex border-b border-stone-200 bg-white sticky top-[60px] z-10 w-full justify-center">
+                            <div class="flex w-full max-w-md md:max-w-2xl">
+                                <button data-action="setLogTab" data-id="novo" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'novo' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Novo Registo</button>
+                                <button data-action="setLogTab" data-id="historico" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${activeTab === 'historico' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Consultar Histórico</button>
+                            </div>
+                        </div>
+                        <div class="p-6 pb-24">
+                            ${content}
                         </div>
                     `;
                 },
@@ -1053,263 +936,211 @@
                             const obsValue = infraction ? (infraction.obs || '') : '';
 
                             return `
-                            <div class="higiene-emp-row flex flex-col p-4 border-b hover:bg-gray-50 transition-colors" data-name="${emp.name.toLowerCase()}">
+                            <div class="higiene-emp-row p-4 border-b border-stone-100 last:border-0 md:border md:rounded-lg md:mb-2 flex flex-col justify-center" data-name="${emp.name.toLowerCase()}">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-gray-800 font-medium text-lg">${emp.name}</span>
-                                    <label class="relative inline-flex items-center cursor-pointer" title="Marcar como inadequado gerará penalidade (desconto)">
-                                        <span class="mr-3 text-sm font-bold ${isChecked ? 'text-red-500' : 'text-emerald-600'}">${isChecked ? 'Descontar!' : 'De Acordo'}</span>
+                                    <span class="text-stone-800 font-bold text-sm leading-tight pr-4">${emp.name}</span>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <span class="mr-2 text-[10px] font-bold uppercase ${isChecked ? 'text-red-500' : 'text-stone-400'}">${isChecked ? 'Penalizado' : 'OK'}</span>
                                         <input type="checkbox" class="sr-only peer hygiene-checkbox" data-empid="${emp.id}" data-date="${today}" ${isChecked?'checked':''}>
-                                        <div class="w-14 h-7 bg-emerald-400 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500"></div>
+                                        <div class="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                                     </label>
                                 </div>
                                 ${isChecked ? `
-                                <div class="mt-3 animate-[fadeIn_0.2s_ease-out]">
-                                    <input type="text" placeholder="Descreva a ocorrência (ex: Unhas grandes, sem touca)..." value="${obsValue}" data-empid="${emp.id}" data-date="${today}" class="hygiene-obs-input w-full text-sm px-4 py-2 border border-red-300 rounded-lg bg-red-50 focus:ring-2 focus:ring-red-500 outline-none text-red-900 placeholder-red-300">
+                                <div class="mt-3 animate-fade-in">
+                                    <input type="text" placeholder="Descreva (ex: sem touca)..." value="${obsValue}" data-empid="${emp.id}" data-date="${today}" class="hygiene-obs-input w-full text-xs p-2 border border-red-300 rounded bg-red-50 outline-none text-red-900 placeholder-red-300 focus:border-red-500">
                                 </div>
                                 ` : ''}
                             </div>`;
                         }).join('');
-                        sectorsHtml += `<div class="mb-6 sector-group shadow-sm rounded-xl overflow-hidden border border-slate-200"><h3 class="bg-slate-800 text-white px-5 py-3 font-bold text-lg"><i class="fa-solid fa-users mr-3 opacity-70"></i> ${sec.name}</h3><div class="bg-white">${empsHtml}</div></div>`;
+                        sectorsHtml += `<div class="mb-6 sector-group bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden"><h3 class="bg-stone-50 text-stone-700 px-6 py-3 border-b border-stone-200 font-bold text-sm uppercase">${sec.name}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 md:gap-4 md:p-4">${empsHtml}</div></div>`;
                     });
 
                     return `
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-                            <h2 class="text-2xl font-bold text-gray-800 flex items-center"><i class="fa-solid fa-hands-bubbles text-blue-500 mr-3 text-3xl"></i> Inspeção de Higiene</h2>
-                            <div class="flex items-center space-x-3 w-full md:w-auto bg-white p-2 rounded-lg shadow-sm border border-gray-100">
-                                <label class="font-semibold text-gray-600 pl-2">Data:</label>
-                                <input type="date" id="higiene_date" value="${today}" class="px-3 py-1.5 border-none bg-gray-50 focus:ring-2 outline-none rounded w-full md:w-auto">
-                            </div>
-                        </div>
-                        
-                        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl mb-6 flex items-start">
-                            <i class="fa-solid fa-circle-info text-emerald-600 text-xl mr-3 mt-0.5"></i>
-                            <p class="text-sm text-emerald-900 leading-relaxed">
-                                <b>Por defeito, o sistema assume que todos estão de acordo.</b> 
-                                Apenas necessita de marcar as chaves vermelhas e preencher a ocorrência para quem for penalizado naquele dia.
-                            </p>
-                        </div>
+                        ${renderHeader('Inspeção de Higiene')}
+                        <div class="p-6 pb-24 space-y-6">
+                            <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4">
+                                <div class="bg-stone-50 border border-stone-200 p-3 rounded-xl text-sm text-stone-600 flex items-center justify-between w-full md:w-auto shadow-sm">
+                                    <span class="font-bold uppercase text-[10px] mr-4"><i class="fa-solid fa-calendar mr-1"></i> Data:</span>
+                                    <input type="date" id="higiene_date" value="${today}" class="p-1.5 border border-stone-300 bg-white focus:border-yellow-500 outline-none rounded font-bold text-stone-800">
+                                </div>
 
-                        <div class="mb-8 relative">
-                            <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-gray-400 text-lg"></i></div>
-                            <input type="text" id="search_higiene" placeholder="Procurar por nome..." class="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <div class="relative w-full md:flex-1">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400"><i class="fa-solid fa-search"></i></div>
+                                    <input type="text" id="search_higiene" placeholder="Procurar colaborador..." class="w-full pl-10 p-3 bg-white border border-stone-300 rounded-xl text-sm outline-none focus:border-yellow-500 shadow-sm">
+                                </div>
+                            </div>
+
+                            <div id="higiene_list">${sectorsHtml||'<p class="text-center text-stone-500">Nenhum colaborador.</p>'}</div>
                         </div>
-                        <div id="higiene_list" class="max-w-4xl mx-auto">${sectorsHtml||'<p class="text-center text-gray-500">Nenhum colaborador.</p>'}</div>
                     `;
                 },
                 proporcionais: () => {
                     const currentMonthId = window.app.getMonthId(new Date());
                     const list = state.prorations.filter(p => p.monthId === currentMonthId).map(p => {
                         const emp = state.employees.find(e => e.id === p.employeeId);
-                        return `<div class="flex justify-between items-center p-4 border-b"><div><p class="font-bold text-gray-800">${emp?emp.name:'Desc.'}</p><p class="text-sm text-gray-500">${p.daysWorked} de ${p.totalDays} dias</p></div><button data-action="confirmDeleteProration" data-id="${p.id}" class="text-red-500"><i class="fa-solid fa-trash"></i></button></div>`;
+                        return `<div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center animate-fade-in"><div><p class="font-bold text-stone-800 text-base">${emp?emp.name:'Desc.'}</p><p class="text-sm text-stone-500 uppercase mt-1">Trabalhou: <strong class="text-yellow-600">${p.daysWorked}</strong> de ${p.totalDays} dias</p></div><button data-action="confirmDeleteProration" data-id="${p.id}" class="p-3 bg-stone-100 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"><i class="fa-solid fa-trash"></i></button></div>`;
                     }).join('');
+
                     return `
-                        <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-gray-800">Férias e Admissões</h2><button data-action="showProrationForm" class="bg-blue-600 text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-plus mr-2"></i> Registar</button></div>
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 max-w-2xl"><div class="p-4 bg-gray-50 border-b font-semibold text-gray-600">Mês Atual (${currentMonthId})</div>${list||'<div class="p-8 text-center text-gray-500">Nenhum registo.</div>'}</div>
+                        ${renderHeader('Férias e Admissões')}
+                        <div class="p-6 pb-24 max-w-4xl mx-auto">
+                            <button data-action="showProrationForm" class="w-full py-4 mb-8 bg-yellow-500 text-white rounded-xl font-bold shadow-lg shadow-yellow-500/20 hover:bg-yellow-600 flex justify-center items-center gap-2 text-lg">
+                                <i class="fa-solid fa-plus"></i> Novo Registo Proporcional
+                            </button>
+                            
+                            <h3 class="text-sm font-bold text-stone-500 uppercase mb-4 ml-1 border-b border-stone-300 pb-2"><i class="fa-solid fa-calendar-day mr-2"></i> Registos do Mês (${currentMonthId})</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${list||'<div class="p-8 text-center text-stone-400 bg-stone-50 rounded-xl border border-stone-200 border-dashed text-sm col-span-full">Nenhum registo neste mês.</div>'}
+                            </div>
+                        </div>
                     `;
                 },
                 relatorios: () => {
+                    // Mesma lógica de cálculo mantida intacta
                     window.app.calculateMonthlyReport = (monthId) => {
                         const report = [];
                         state.employees.forEach(emp => {
                             const sector = state.sectors.find(s => s.id === emp.sectorId);
                             if(!sector) return;
-
                             let baseValue = emp.role === 'lider' ? sector.val_lider : sector.val_liderado;
                             if (emp.customBaseValue) baseValue = Number(emp.customBaseValue);
-                            
                             const proration = state.prorations.find(p => p.employeeId === emp.id && p.monthId === monthId);
                             let validBase = baseValue;
                             let proportionMsg = "Mês Integral";
                             if (proration) {
-                                const ratio = proration.daysWorked / proration.totalDays;
-                                validBase = baseValue * ratio;
+                                validBase = baseValue * (proration.daysWorked / proration.totalDays);
                                 proportionMsg = `${proration.daysWorked}/${proration.totalDays} dias`;
                             }
-
                             const empLogs = state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId);
                             const empHygiene = state.hygieneChecks.filter(h => h.employeeId === emp.id && (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId));
-                            
                             let totalDeductionPct = 0;
                             const errorCounts = {};
-
                             empLogs.forEach(log => { errorCounts[log.ruleId] = (errorCounts[log.ruleId] || 0) + 1; });
                             if (empHygiene.length > 0) errorCounts['higiene'] = empHygiene.length;
-
                             state.rules.forEach(rule => {
                                 const count = errorCounts[rule.id] || 0;
-                                const validCount = Math.min(count, rule.max);
-                                totalDeductionPct += (validCount * rule.pct);
+                                totalDeductionPct += (Math.min(count, rule.max) * rule.pct);
                             });
-
                             if (totalDeductionPct > 1) totalDeductionPct = 1;
-
-                            const deductionValue = validBase * totalDeductionPct;
-                            const finalValue = validBase - deductionValue;
-
-                            report.push({ emp, sectorName: sector.name, baseValue, validBase, proportionMsg, totalDeductionPct, deductionValue, finalValue, errorCounts });
+                            const finalValue = validBase - (validBase * totalDeductionPct);
+                            report.push({ emp, sectorName: sector.name, baseValue, validBase, proportionMsg, totalDeductionPct, finalValue });
                         });
                         return report.sort((a,b) => a.sectorName.localeCompare(b.sectorName) || a.emp.name.localeCompare(b.emp.name));
                     };
 
                     window.app.generateErrorLogsReportHtml = (monthId) => {
                         let html = '';
-                        const sortedSectors = [...state.sectors].sort((a,b)=>(a.name || '').localeCompare(b.name || ''));
-                        sortedSectors.forEach(sec => {
-                            const emps = state.employees.filter(e => e.sectorId === sec.id).sort((a,b)=>(a.name || '').localeCompare(b.name || ''));
+                        [...state.sectors].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(sec => {
+                            const emps = state.employees.filter(e => e.sectorId === sec.id).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
                             if(emps.length === 0) return;
-                            
                             let sectorLogsHtml = '';
                             emps.forEach(emp => {
-                                const empLogs = state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId);
-                                const empHygiene = state.hygieneChecks.filter(h => h.employeeId === emp.id && (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId))
-                                                  .map(h => ({ ...h, ruleId: 'higiene' }));
-                                
-                                const allLogs = [...empLogs, ...empHygiene].sort((a,b) => new Date(a.date || 0) - new Date(b.date || 0));
+                                const allLogs = [...state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId), ...state.hygieneChecks.filter(h => h.employeeId === emp.id && (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId)).map(h => ({ ...h, ruleId: 'higiene' }))].sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
                                 if(allLogs.length === 0) return;
-                                
                                 const logsList = allLogs.map(l => {
                                     const rule = state.rules.find(r => r.id === l.ruleId);
                                     const dateStr = l.date ? l.date.split('-').reverse().join('/') : '--/--/----';
-                                    const obsStr = l.obs ? `<br><span class="text-xs text-gray-500 italic mt-1 block"><i class="fa-solid fa-comment-dots text-gray-400 mr-1"></i> ${l.obs}</span>` : '';
-                                    return `<li class="text-sm text-gray-700 ml-4 border-l-2 border-red-400 pl-3 py-2 mb-1"><span class="font-bold w-24 inline-block text-gray-500">${dateStr}</span><span>${rule ? rule.name : 'Desconhecido'} <b class="text-red-500">(-${window.app.formatPct(rule?.pct||0)})</b></span>${obsStr}</li>`;
+                                    return `<li class="text-sm text-stone-700 ml-2 border-l-2 border-red-400 pl-3 py-1 mb-2"><span class="font-bold text-stone-500 mr-2">${dateStr}</span>${rule ? rule.name : 'Desc.'} <b class="text-red-500">(-${window.app.formatPct(rule?.pct||0)})</b>${l.obs?`<br><span class="text-xs italic text-stone-400 mt-1 block">Obs: ${l.obs}</span>`:''}</li>`;
                                 }).join('');
-                                sectorLogsHtml += `<div class="mb-4 bg-gray-50 rounded-lg p-4 border border-gray-100"><p class="font-bold text-gray-800 text-lg mb-2"><i class="fa-solid fa-user text-gray-400 mr-2"></i> ${emp.name}</p><ul class="mt-1">${logsList}</ul></div>`;
+                                sectorLogsHtml += `<div class="mb-4 bg-white rounded-lg p-4 border border-stone-200"><p class="font-bold text-stone-800 text-base mb-3">${emp.name}</p><ul>${logsList}</ul></div>`;
                             });
-                            
-                            if(sectorLogsHtml) html += `<div class="mb-8 page-break-avoid"><h3 class="bg-slate-800 text-white px-5 py-3 rounded-xl font-bold mb-4 shadow-sm flex items-center"><i class="fa-solid fa-sitemap mr-3 opacity-70"></i> ${sec.name}</h3><div class="px-2">${sectorLogsHtml}</div></div>`;
+                            if(sectorLogsHtml) html += `<div class="mb-6"><h3 class="bg-stone-100 text-stone-600 px-4 py-3 rounded-t-lg font-bold text-sm uppercase border border-stone-200 border-b-0">${sec.name}</h3><div class="p-4 border border-stone-200 rounded-b-lg bg-stone-50 grid grid-cols-1 md:grid-cols-2 gap-4">${sectorLogsHtml}</div></div>`;
                         });
-                        return html || '<div class="p-12 text-center text-gray-500 text-lg bg-gray-50 rounded-xl border border-gray-100">Nenhum erro registado neste mês para os setores.</div>';
+                        return html || '<div class="p-8 text-center text-stone-400 text-sm border border-dashed border-stone-300 rounded-xl">Sem erros registados.</div>';
                     };
 
-                    const allMonthsFound = [...state.logs, ...state.hygieneChecks].map(l => l.monthId || window.app.getMonthId(new Date(l.date+'T12:00:00')));
-                    const months = [...new Set(allMonthsFound), window.app.getMonthId(new Date())].sort().reverse();
-                    
+                    const months = [...new Set([...state.logs, ...state.hygieneChecks].map(l => l.monthId || window.app.getMonthId(new Date(l.date+'T12:00:00')))), window.app.getMonthId(new Date())].sort().reverse();
                     const selectedMonth = document.getElementById('report_month')?.value || months[0];
                     const monthOpts = months.map(m => `<option value="${m}" ${m===selectedMonth?'selected':''}>${m}</option>`).join('');
 
-                    const reportType = state.reportTab; 
-
                     let reportContent = '';
-                    let pdfTitle = '';
-
-                    if (reportType === 'fechamento') {
-                        pdfTitle = 'Relatório de Fechamento Financeiro';
-                        const reportData = window.app.calculateMonthlyReport(selectedMonth);
-                        const tableRows = reportData.map(row => `
-                            <tr class="text-sm border-b hover:bg-gray-50">
-                                <td class="px-3 py-3 font-medium text-gray-800">${row.emp.name}</td>
-                                <td class="px-3 py-3 text-gray-600">${row.sectorName}</td>
-                                <td class="px-3 py-3 text-right text-gray-500">${window.app.formatBRL(row.baseValue)}</td>
-                                <td class="px-3 py-3 text-center text-xs text-blue-600">${row.proportionMsg}</td>
-                                <td class="px-3 py-3 text-center font-bold text-red-500">${window.app.formatPct(row.totalDeductionPct)}</td>
-                                <td class="px-3 py-3 text-right font-bold text-emerald-600 bg-emerald-50/20">${window.app.formatBRL(row.finalValue)}</td>
+                    if (state.reportTab === 'fechamento') {
+                        const tableRows = window.app.calculateMonthlyReport(selectedMonth).map(row => `
+                            <tr class="text-xs md:text-sm border-b hover:bg-stone-50">
+                                <td class="px-3 md:px-4 py-3 font-bold text-stone-800">${row.emp.name}</td>
+                                <td class="px-3 md:px-4 py-3 text-stone-600">${row.sectorName}</td>
+                                <td class="px-3 md:px-4 py-3 text-right text-stone-500">${window.app.formatBRL(row.baseValue)}</td>
+                                <td class="px-3 md:px-4 py-3 text-center text-blue-600 font-bold">${row.totalDeductionPct > 0 ? '-'+window.app.formatPct(row.totalDeductionPct) : '0%'}</td>
+                                <td class="px-3 md:px-4 py-3 text-right font-black text-green-700 bg-green-50/50">${window.app.formatBRL(row.finalValue)}</td>
                             </tr>
                         `).join('');
 
                         reportContent = `
-                            <table class="w-full text-left whitespace-nowrap">
-                                <thead>
-                                    <tr class="bg-gray-100 text-gray-600 text-sm">
-                                        <th class="px-3 py-4 font-semibold">Colaborador</th>
-                                        <th class="px-3 py-4 font-semibold">Setor</th>
-                                        <th class="px-3 py-4 font-semibold text-right">Valor Base</th>
-                                        <th class="px-3 py-4 font-semibold text-center">Dias (Férias/Adm)</th>
-                                        <th class="px-3 py-4 font-semibold text-center">Descontos</th>
-                                        <th class="px-3 py-4 font-semibold text-right rounded-tr-xl">A RECEBER</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${tableRows || '<tr><td colspan="6" class="text-center py-10 text-gray-500">Sem dados para este mês.</td></tr>'}</tbody>
-                            </table>
+                            <div class="overflow-x-auto rounded-xl border border-stone-200 shadow-sm">
+                                <table class="w-full text-left whitespace-nowrap bg-white">
+                                    <thead class="bg-stone-100 text-stone-500 text-xs uppercase border-b border-stone-200">
+                                        <tr><th class="px-3 md:px-4 py-4 font-bold">Colaborador</th><th class="px-3 md:px-4 py-4 font-bold">Setor</th><th class="px-3 md:px-4 py-4 font-bold text-right">Base</th><th class="px-3 md:px-4 py-4 font-bold text-center">Descontos</th><th class="px-3 md:px-4 py-4 font-bold text-right">A Receber</th></tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-stone-100">${tableRows || '<tr><td colspan="5" class="text-center py-8 text-stone-400">Sem dados.</td></tr>'}</tbody>
+                                </table>
+                            </div>
                         `;
                     } else {
-                        pdfTitle = 'Detalhamento de Erros por Setor';
                         reportContent = window.app.generateErrorLogsReportHtml(selectedMonth);
                     }
 
-                    let mesExtenso = selectedMonth;
-                    if (selectedMonth && selectedMonth.includes('-')) {
-                        const [ano, mes] = selectedMonth.split('-');
-                        const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-                        mesExtenso = nomesMeses[parseInt(mes, 10) - 1] + ' de ' + ano;
-                    }
-
-                    const logoHtml = state.settings?.logo ? `<img src="${state.settings.logo}" class="print-logo">` : `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 no-print"><i class="fa-solid fa-image"></i></div>`;
-
                     return `
-                        <div class="no-print flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
-                            <h2 class="text-2xl font-bold text-gray-800">Relatórios do RH</h2>
-                            
-                            <div class="flex space-x-3 items-center w-full md:w-auto bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                                <label class="font-semibold text-gray-600 pl-2">Mês Base:</label>
-                                <select id="report_month" class="px-3 py-2 border-none bg-gray-50 rounded-lg font-medium outline-none focus:ring-2 focus:ring-blue-500">
-                                    ${monthOpts}
-                                </select>
-                                <button data-action="print" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-lg font-medium shadow-md transition-all flex items-center">
-                                    <i class="fa-solid fa-print mr-2"></i> Gerar PDF
-                                </button>
+                        ${renderHeader('Relatórios (RH)')}
+                        <div class="flex border-b border-stone-200 bg-white sticky top-[60px] z-10 w-full justify-center">
+                            <div class="flex w-full max-w-md md:max-w-2xl">
+                                <button data-action="setReportTab" data-id="fechamento" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'fechamento' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Valores e Fecho</button>
+                                <button data-action="setReportTab" data-id="erros" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'erros' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Análise de Erros</button>
                             </div>
                         </div>
 
-                        <div class="no-print flex space-x-2 mb-6 bg-gray-200 p-1 rounded-xl w-fit">
-                            <button data-action="setReportTab" data-id="fechamento" class="${reportType==='fechamento'?'bg-white shadow-sm text-blue-600 font-bold':'text-gray-600 hover:text-gray-800'} px-6 py-2.5 rounded-lg transition-all">
-                                <i class="fa-solid fa-file-invoice-dollar mr-2"></i> Fechamento Financeiro
-                            </button>
-                            <button data-action="setReportTab" data-id="erros" class="${reportType==='erros'?'bg-white shadow-sm text-blue-600 font-bold':'text-gray-600 hover:text-gray-800'} px-6 py-2.5 rounded-lg transition-all">
-                                <i class="fa-solid fa-clipboard-list mr-2"></i> Detalhamento de Erros
-                            </button>
-                        </div>
-
-                        <div class="print-card bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden mb-8 p-6">
-                            <div class="print-header flex justify-between items-center border-b-2 border-gray-100 pb-6 mb-6">
-                                <div>
-                                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Gratificação Mensal</h1>
-                                    <p class="text-gray-500 mt-1 font-bold text-xl uppercase tracking-wide">${mesExtenso}</p>
-                                    <p class="text-sm text-blue-600 mt-1 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block">${pdfTitle}</p>
+                        <div class="p-6 pb-24 max-w-5xl mx-auto">
+                            <div class="flex flex-col md:flex-row gap-4 mb-8 no-print bg-white p-4 rounded-xl border border-stone-200 shadow-sm">
+                                <div class="flex-1 flex items-center gap-3">
+                                    <label class="text-sm font-bold text-stone-500 uppercase"><i class="fa-solid fa-calendar mr-1"></i> Mês</label>
+                                    <select id="report_month" class="flex-1 p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm font-bold text-stone-700">${monthOpts}</select>
                                 </div>
-                                <div>${logoHtml}</div>
+                                <button data-action="print" class="w-full md:w-auto px-8 py-3 bg-stone-800 text-white rounded-lg font-bold text-sm shadow hover:bg-stone-900 flex justify-center items-center gap-2"><i class="fa-solid fa-print"></i> PDF / Imprimir</button>
                             </div>
-                            <div class="overflow-x-auto print-content">${reportContent}</div>
+
+                            <div class="print-card bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden p-6 md:p-8">
+                                <div class="border-b-2 border-stone-900 pb-6 mb-6 flex justify-between items-center">
+                                    <div>
+                                        <h1 class="text-2xl font-black text-stone-900 uppercase">Gratificação Funcional</h1>
+                                        <p class="text-sm text-stone-500 uppercase font-bold tracking-widest mt-1">${selectedMonth}</p>
+                                    </div>
+                                    ${state.settings?.logo ? `<img src="${state.settings.logo}" class="h-12 md:h-16 object-contain">` : ''}
+                                </div>
+                                ${reportContent}
+                            </div>
                         </div>
                     `;
                 },
                 configuracoes: () => {
-                    const currentLogo = state.settings?.logo || '';
-                    const previewHtml = currentLogo 
-                        ? `<img src="${currentLogo}" class="h-32 object-contain rounded-lg border border-gray-200 shadow-sm mb-3"><button type="button" data-action="confirmRemoveLogo" class="text-red-500 text-sm font-semibold hover:underline"><i class="fa-solid fa-trash mr-1"></i>Remover Logo Atual</button>`
-                        : `<div class="h-32 w-48 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 mb-3"><i class="fa-solid fa-image text-3xl"></i></div><p class="text-sm text-gray-500">Nenhuma logo registada</p>`;
+                    const logoHtml = state.settings?.logo 
+                        ? `<img src="${state.settings.logo}" class="h-24 object-contain mx-auto mb-4"><button type="button" data-action="confirmRemoveLogo" class="text-red-500 text-sm font-bold underline w-full text-center hover:text-red-700">Remover Logo</button>`
+                        : `<i class="fa-solid fa-image text-4xl text-stone-300 mb-3"></i><span class="text-sm font-bold text-stone-400">Selecionar Imagem do Computador</span>`;
 
                     return `
-                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Definições do Sistema</h2>
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-2xl">
-                            <h3 class="text-lg font-bold text-gray-800 border-b pb-4 mb-6">Personalização de Relatórios (PDF)</h3>
-                            <form id="form-settings" class="space-y-6">
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-700 mb-4">Logo da Empresa</label>
-                                    <div class="flex flex-col md:flex-row gap-8 items-start">
-                                        <div class="flex flex-col items-center">${previewHtml}</div>
-                                        <div class="flex-1 w-full">
-                                            <label class="flex flex-col items-center px-4 py-6 bg-white text-blue rounded-xl tracking-wide uppercase border border-blue-500 cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm">
-                                                <i class="fa-solid fa-cloud-arrow-up text-3xl mb-2"></i>
-                                                <span class="mt-2 text-sm leading-normal font-bold">Selecionar imagem</span>
-                                                <input type='file' id="logo_upload" class="hidden" accept="image/*" />
-                                            </label>
-                                            <p class="text-xs text-gray-500 mt-3 text-center">Formatos suportados: PNG, JPG ou SVG.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="pt-6 border-t border-gray-100 flex justify-end">
-                                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-colors flex items-center">
-                                        <i class="fa-solid fa-save mr-2"></i> Guardar Definições
-                                    </button>
-                                </div>
-                            </form>
+                        ${renderHeader('Definições')}
+                        <div class="p-6 pb-24 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto animate-fade-in">
+                            <div class="bg-white p-8 rounded-xl shadow-sm border border-stone-200">
+                                <h2 class="font-bold text-stone-800 mb-6 text-base flex items-center gap-2 border-b border-stone-100 pb-3"><i class="fa-solid fa-file-pdf text-yellow-600 text-xl"></i> Personalização (PDF)</h2>
+                                <form id="form-settings" class="space-y-6">
+                                    <label class="flex flex-col justify-center items-center w-full p-8 border-2 border-dashed border-stone-300 rounded-xl cursor-pointer hover:bg-stone-50 text-center transition-colors">
+                                        <input type='file' id="logo_upload" class="hidden" accept="image/*" />
+                                        ${logoHtml}
+                                    </label>
+                                    <button type="submit" class="w-full py-4 bg-stone-800 text-white rounded-xl font-bold shadow hover:bg-stone-900 text-sm flex items-center justify-center gap-2"><i class="fa-solid fa-save"></i> Guardar Alterações</button>
+                                </form>
+                            </div>
+
+                            <div class="bg-white p-8 rounded-xl shadow-sm border border-stone-200">
+                                <h2 class="font-bold text-red-600 mb-6 text-base flex items-center gap-2 border-b border-stone-100 pb-3"><i class="fa-solid fa-triangle-exclamation text-xl"></i> Zona de Perigo</h2>
+                                <p class="text-sm text-stone-500 mb-6 leading-relaxed">Ações que afetam a sua sessão atual ou dados do sistema. Proceda com atenção.</p>
+                                <button data-action="logout" class="w-full py-4 border-2 border-red-200 bg-red-50 text-red-700 rounded-xl font-bold shadow-sm hover:bg-red-100 text-sm flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-arrow-right-from-bracket"></i> Terminar Sessão no Dispositivo</button>
+                            </div>
                         </div>
                     `;
                 }
             }
         };
 
-        // Event Listeners Genéricos (Click Delegation)
+        // Event Listeners Genéricos (Delegação de cliques)
         document.addEventListener('click', async (e) => {
             const navBtn = e.target.closest('[data-nav]');
             if (navBtn) {
@@ -1326,9 +1157,6 @@
 
             try {
                 switch (action) {
-                    case 'toggleMenu':
-                        document.getElementById('mobile-menu').classList.toggle('hidden');
-                        break;
                     case 'print': window.print(); break;
                     case 'showImportModal': window.app.showImportModal(); break;
                     case 'showEmployeeForm': window.app.showEmployeeForm(id); break;
@@ -1342,80 +1170,38 @@
                     case 'loginAnon': window.app.loginAnonymously(); break;
                     case 'logout': window.app.logout(); break;
                     
-                    case 'deleteEmployee':
-                        window.app.confirmAction("Tem a certeza que deseja remover este colaborador?", "executeDeleteEmployee", id);
-                        break;
-                    case 'executeDeleteEmployee':
-                        if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/employees`, id));
-                        window.app.toast("Colaborador removido.", "success");
-                        window.app.closeModal();
-                        break;
+                    case 'deleteEmployee': window.app.confirmAction("Remover este colaborador?", "executeDeleteEmployee", id); break;
+                    case 'executeDeleteEmployee': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/employees`, id)); window.app.toast("Removido.", "success"); window.app.closeModal(); break;
                         
                     case 'deleteSector':
                         const empsInSector = state.employees.filter(emp => emp.sectorId === id);
-                        if (empsInSector.length > 0) return window.app.toast(`Não é possível excluir. Existem ${empsInSector.length} colaboradores neste setor.`, "error");
-                        window.app.confirmAction("Tem a certeza que deseja remover este setor?", "executeDeleteSector", id);
-                        break;
-                    case 'executeDeleteSector':
-                        if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/sectors`, id));
-                        window.app.toast("Setor removido com sucesso.", "success");
-                        window.app.closeModal();
-                        break;
+                        if (empsInSector.length > 0) return window.app.toast(`Existem ${empsInSector.length} pessoas no setor.`, "error");
+                        window.app.confirmAction("Remover este setor?", "executeDeleteSector", id); break;
+                    case 'executeDeleteSector': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/sectors`, id)); window.app.toast("Removido.", "success"); window.app.closeModal(); break;
 
                     case 'deleteRule':
-                        if (id === 'higiene') return window.app.toast("A regra de Higiene Pessoal é nativa e não pode ser excluída.", "error");
-                        window.app.confirmAction("Tem a certeza que deseja remover este critério?", "executeDeleteRule", id);
-                        break;
-                    case 'executeDeleteRule':
-                        if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/rules`, id));
-                        window.app.toast("Regra removida.", "success");
-                        window.app.closeModal();
-                        break;
+                        if (id === 'higiene') return window.app.toast("Higiene é nativa.", "error");
+                        window.app.confirmAction("Remover critério?", "executeDeleteRule", id); break;
+                    case 'executeDeleteRule': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/rules`, id)); window.app.toast("Removido.", "success"); window.app.closeModal(); break;
 
-                    case 'deleteLog':
-                        window.app.confirmAction("Excluir este registo de erro?", "executeDeleteLog", id);
-                        break;
-                    case 'executeDeleteLog':
-                        if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/logs`, id));
-                        window.app.toast("Registo excluído.", "success");
-                        window.app.closeModal();
-                        break;
+                    case 'deleteLog': window.app.confirmAction("Excluir registo de erro?", "executeDeleteLog", id); break;
+                    case 'executeDeleteLog': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/logs`, id)); window.app.toast("Excluído.", "success"); window.app.closeModal(); break;
 
-                    case 'deleteHygieneRecord':
-                        window.app.confirmAction("Remover penalidade de higiene?", "executeDeleteHygieneRecord", id);
-                        break;
-                    case 'executeDeleteHygieneRecord':
-                        if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id));
-                        window.app.toast("Penalidade removida.", "success");
-                        window.app.closeModal();
-                        break;
+                    case 'deleteHygieneRecord': window.app.confirmAction("Remover penalidade?", "executeDeleteHygieneRecord", id); break;
+                    case 'executeDeleteHygieneRecord': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id)); window.app.toast("Removida.", "success"); window.app.closeModal(); break;
 
-                    case 'deleteProration':
-                    case 'confirmDeleteProration':
-                        window.app.confirmAction("Excluir este registo de Férias/Admissão?", "executeDeleteProration", id);
-                        break;
-                    case 'executeDeleteProration':
-                        if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/prorations`, id));
-                        window.app.toast("Registo excluído.", "success");
-                        window.app.closeModal();
-                        break;
+                    case 'confirmDeleteProration': window.app.confirmAction("Excluir Férias/Admissão?", "executeDeleteProration", id); break;
+                    case 'executeDeleteProration': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/prorations`, id)); window.app.toast("Excluído.", "success"); window.app.closeModal(); break;
 
-                    case 'confirmRemoveLogo':
-                        window.app.confirmAction("Remover a logo atual?", "executeRemoveLogo");
-                        break;
-                    case 'executeRemoveLogo':
-                        if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/settings`, 'main'), { logo: '' });
-                        window.app.toast("Logo removida.", "success");
-                        window.app.closeModal();
-                        break;
+                    case 'confirmRemoveLogo': window.app.confirmAction("Remover a logo?", "executeRemoveLogo"); break;
+                    case 'executeRemoveLogo': if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/settings`, 'main'), { logo: '' }); window.app.toast("Removida.", "success"); window.app.closeModal(); break;
                 }
             } catch (err) {
-                console.error("Action error:", err);
-                window.app.toast("Ocorreu um erro na operação.", "error");
+                window.app.toast("Erro na operação.", "error");
             }
         });
 
-        // Formulários Controlados Seguramente
+        // Formulários Controlados (Lógica Inalterada, IDs preservados)
         document.addEventListener('submit', async (e) => {
             const formId = e.target.id;
             e.preventDefault();
@@ -1432,7 +1218,7 @@
                         active: true
                     };
                     if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/employees`, id), data);
-                    window.app.toast("Colaborador salvo com sucesso.", "success");
+                    window.app.toast("Colaborador salvo.", "success");
                     window.app.closeModal();
                 }
 
@@ -1444,7 +1230,7 @@
                         val_lider: Number(document.getElementById('sec_val_lider').value),
                     };
                     if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/sectors`, id), data);
-                    window.app.toast("Setor salvo com sucesso.", "success");
+                    window.app.toast("Setor salvo.", "success");
                     window.app.closeModal();
                 }
 
@@ -1456,7 +1242,7 @@
                         max: Number(document.getElementById('rule_max').value)
                     };
                     if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/rules`, id), data);
-                    window.app.toast("Regra salva com sucesso.", "success");
+                    window.app.toast("Regra salva.", "success");
                     window.app.closeModal();
                 }
 
@@ -1468,10 +1254,8 @@
                     if(!empId || !monthId || !daysWorked || !totalDays) return;
 
                     const id = `${empId}_${monthId}`;
-                    const data = { employeeId: empId, monthId, daysWorked, totalDays };
-                    
-                    if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/prorations`, id), data);
-                    window.app.toast("Registo salvo com sucesso.", "success");
+                    if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/prorations`, id), { employeeId: empId, monthId, daysWorked, totalDays });
+                    window.app.toast("Registo salvo.", "success");
                     window.app.closeModal();
                 }
 
@@ -1481,7 +1265,7 @@
                     const ruleId = document.getElementById('log_rule').value;
                     const obs = document.getElementById('log_obs').value;
                     
-                    if(!date || !ruleId) return window.app.toast("Preencha todos os campos obrigatórios.", "error");
+                    if(!date || !ruleId) return window.app.toast("Preencha todos os campos.", "error");
                     const monthId = window.app.getMonthId(new Date(date + 'T12:00:00'));
                     
                     if (logType === 'individual') {
@@ -1489,39 +1273,30 @@
                         if(!empId) return window.app.toast("Selecione o colaborador.", "error");
                         
                         const id = window.app.generateId();
-                        const data = { employeeId: empId, date, ruleId, monthId, timestamp: Date.now(), obs: obs || '' };
-                        if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/logs`, id), data);
+                        if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/logs`, id), { employeeId: empId, date, ruleId, monthId, timestamp: Date.now(), obs: obs || '' });
                         
                         document.getElementById('log_form').reset();
                         document.getElementById('log_date').value = date;
                         if(document.getElementById('log_emp_search')) document.getElementById('log_emp_search').value = '';
                         window.app.filterLogEmp(''); 
-                        window.app.toast("Erro registado com sucesso.", "success");
+                        window.app.toast("Erro registado.", "success");
                     } else {
                         const secId = document.getElementById('log_sec').value;
                         if(!secId) return window.app.toast("Selecione o setor.", "error");
                         
                         const emps = state.employees.filter(emp => emp.sectorId === secId);
-                        if(emps.length === 0) return window.app.toast("Nenhum colaborador encontrado neste setor.", "error");
-                        
+                        if(emps.length === 0) return window.app.toast("Setor vazio.", "error");
                         const safeObs = obs ? obs.replace(/'/g, "\\'").replace(/"/g, "&quot;") : '';
                         
-                        if(confirm(`Esta ação aplicará o desconto a TODOS os ${emps.length} colaboradores do setor. Deseja confirmar?`)) {
+                        if(confirm(`Descontar os ${emps.length} colaboradores do setor?`)) {
                             if(db) {
                                 await Promise.all(emps.map(emp => {
-                                    const id = window.app.generateId();
-                                    const data = { 
-                                        employeeId: emp.id, date, ruleId, monthId, timestamp: Date.now(), 
-                                        obs: (safeObs ? safeObs + ' (Penalidade do Setor)' : 'Penalidade aplicada a todo o Setor') 
-                                    };
-                                    return setDoc(doc(db, `artifacts/${appId}/public/data/logs`, id), data);
+                                    return setDoc(doc(db, `artifacts/${appId}/public/data/logs`, window.app.generateId()), { employeeId: emp.id, date, ruleId, monthId, timestamp: Date.now(), obs: (safeObs ? safeObs + ' (Setor)' : 'Penalidade do Setor') });
                                 }));
                             }
                             document.getElementById('log_form').reset();
                             document.getElementById('log_date').value = date;
-                            if(document.getElementById('log_emp_search')) document.getElementById('log_emp_search').value = '';
-                            window.app.filterLogEmp('');
-                            window.app.toast("Erros registados para todo o setor.", "success");
+                            window.app.toast("Erros registados no setor.", "success");
                         }
                     }
                 }
@@ -1531,33 +1306,28 @@
                     if (fileInput.files && fileInput.files[0]) {
                         const reader = new FileReader();
                         reader.onload = async (event) => {
-                            const base64String = event.target.result;
-                            if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/settings`, 'main'), { logo: base64String });
-                            window.app.toast("Logo atualizada com sucesso!", "success");
+                            if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/settings`, 'main'), { logo: event.target.result });
+                            window.app.toast("Logo atualizada!", "success");
                         };
                         reader.readAsDataURL(fileInput.files[0]);
-                    } else {
-                        window.app.toast("Selecione uma imagem primeiro.", "error");
                     }
                 }
             } catch (err) {
-                console.error("Form error:", err);
-                window.app.toast("Erro ao guardar dados.", "error");
+                window.app.toast("Erro ao guardar.", "error");
             }
         });
 
-        // Eventos Específicos
+        // Eventos Change e Input 
         document.addEventListener('change', async (e) => {
             if (e.target.classList.contains('hygiene-checkbox')) {
                 const empId = e.target.dataset.empid;
                 const date = e.target.dataset.date;
                 const isChecked = e.target.checked;
-                
                 const id = `${date}_${empId}`;
+                
                 if (isChecked) {
                     const monthId = window.app.getMonthId(new Date(date + 'T12:00:00'));
-                    const data = { employeeId: empId, date, monthId, timestamp: Date.now(), obs: '' };
-                    if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id), data);
+                    if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id), { employeeId: empId, date, monthId, timestamp: Date.now(), obs: '' });
                 } else {
                     if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id));
                 }
@@ -1576,8 +1346,6 @@
                     document.getElementById('div_sec').classList.remove('hidden');
                 }
             }
-
-            if (e.target.id === 'dropzone-file') window.app.handleFileUpload(e);
         });
 
         document.addEventListener('input', (e) => {
@@ -1588,12 +1356,8 @@
 
         document.addEventListener('focusout', async (e) => {
             if (e.target.classList.contains('hygiene-obs-input')) {
-                const empId = e.target.dataset.empid;
-                const date = e.target.dataset.date;
-                const obs = e.target.value;
-                const id = `${date}_${empId}`;
-                if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id), { obs }, { merge: true });
-                window.app.toast("Observação guardada.", "success");
+                const id = `${e.target.dataset.date}_${e.target.dataset.empid}`;
+                if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/hygiene_checks`, id), { obs: e.target.value }, { merge: true });
             }
         });
 

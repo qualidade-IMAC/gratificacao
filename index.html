@@ -479,7 +479,10 @@
             },
             
             showProrationForm: () => {
-                const empOpts = state.employees.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+                const empOpts = state.employees.map(e => {
+                    const sec = state.sectors.find(s => s.id === e.sectorId);
+                    return `<option value="${e.id}">${e.name} - ${sec ? sec.name : 'Geral'}</option>`;
+                }).join('');
                 const currentMonth = window.app.getMonthId(new Date());
                 window.app.openModal(`
                     <div class="p-4 border-b border-stone-200">
@@ -842,7 +845,10 @@
                             <div id="log_history_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8"></div>
                         `;
                     } else {
-                        const empOpts = state.employees.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+                        const empOpts = state.employees.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => {
+                            const sec = state.sectors.find(s => s.id === e.sectorId);
+                            return `<option value="${e.id}">${e.name} - ${sec ? sec.name : 'Geral'}</option>`;
+                        }).join('');
                         const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                         const ruleOpts = state.rules.filter(r => r.id !== 'higiene').map(r => `<option value="${r.id}">${r.name} (-${window.app.formatPct(r.pct)})</option>`).join('');
                         const today = new Date().toISOString().split('T')[0];

@@ -335,6 +335,61 @@
             setReportTab: (tab) => { state.reportTab = tab; window.app.render(); },
             setLogTab: (tab) => { state.logTab = tab; window.app.render(); },
 
+            updateLogEmpCount: () => {
+                const checkboxes = document.querySelectorAll('.log-emp-cb');
+                const checked = document.querySelectorAll('.log-emp-cb:checked');
+                const selectAll = document.getElementById('log_select_all');
+                const countSpan = document.getElementById('log_emp_count');
+                
+                if(selectAll && checkboxes.length > 0) {
+                    selectAll.checked = checkboxes.length === checked.length;
+                }
+                if(countSpan) {
+                    countSpan.innerText = `${checked.length} de ${checkboxes.length} selecionados`;
+                }
+            },
+
+            renderLogEmpsChecklist: (sectorId) => {
+                const container = document.getElementById('emps_container');
+                const listDiv = document.getElementById('emps_list');
+                const selectAll = document.getElementById('log_select_all');
+                const countSpan = document.getElementById('log_emp_count');
+                
+                if (!sectorId) {
+                    container.classList.add('hidden');
+                    return;
+                }
+                container.classList.remove('hidden');
+                if (selectAll) selectAll.checked = false;
+                
+                let filtered = state.employees;
+                if (sectorId !== 'todos') {
+                    filtered = filtered.filter(e => e.sectorId === sectorId);
+                }
+                filtered.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+                
+                if (filtered.length === 0) {
+                    listDiv.innerHTML = '<p class="text-stone-400 text-xs text-center py-6">Nenhum colaborador encontrado.</p>';
+                    if (countSpan) countSpan.innerText = '0 selecionados';
+                    return;
+                }
+
+                listDiv.innerHTML = filtered.map(emp => {
+                    const sec = state.sectors.find(s => s.id === emp.sectorId);
+                    return `
+                    <label class="flex items-center gap-3 p-3 hover:bg-stone-50 rounded-lg cursor-pointer border border-transparent hover:border-stone-200 transition-colors">
+                        <input type="checkbox" value="${emp.id}" class="log-emp-cb w-5 h-5 text-yellow-600 rounded border-stone-300 focus:ring-yellow-500">
+                        <div>
+                            <span class="text-sm text-stone-800 font-bold block leading-tight">${emp.name}</span>
+                            <span class="text-[10px] text-stone-500 font-bold uppercase">${sec ? sec.name : 'Geral'}</span>
+                        </div>
+                    </label>
+                    `;
+                }).join('');
+                
+                if (countSpan) countSpan.innerText = `0 de ${filtered.length} selecionados`;
+            },
+
             render: () => {
                 const container = document.getElementById('app-container');
                 if(!container) return;
@@ -568,17 +623,6 @@
                     `;
                 }).join('');
                 container.innerHTML = items || '<div class="text-center p-6 text-stone-500 col-span-full">Nenhum encontrado.</div>';
-            },
-
-            filterLogEmp: (term) => {
-                term = term.toLowerCase();
-                const select = document.getElementById('log_emp');
-                if(!select) return;
-                Array.from(select.options).forEach(opt => {
-                    if (opt.value === "") return;
-                    if (opt.text.toLowerCase().includes(term)) opt.style.display = ''; 
-                    else opt.style.display = 'none';
-                });
             },
 
             filterHigiene: (term) => {
@@ -860,10 +904,6 @@
                             <div id="log_history_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8"></div>
                         `;
                     } else {
-                        const empOpts = state.employees.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(e => {
-                            const sec = state.sectors.find(s => s.id === e.sectorId);
-                            return `<option value="${e.id}">${e.name} - ${sec ? sec.name : 'Geral'}</option>`;
-                        }).join('');
                         const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                         const ruleOpts = state.rules.filter(r => r.id !== 'higiene').map(r => `<option value="${r.id}">${r.name} (-${window.app.formatPct(r.pct)})</option>`).join('');
                         const today = new Date().toISOString().split('T')[0];
@@ -871,40 +911,33 @@
                         content = `
                             <div class="bg-white rounded-xl shadow-sm border border-stone-200 p-6 max-w-4xl mx-auto animate-fade-in">
                                 <form id="log_form" class="space-y-6">
-                                    <div class="bg-stone-50 p-4 rounded-xl border border-stone-200 flex flex-col sm:flex-row gap-6">
-                                        <label class="flex items-center gap-3 cursor-pointer flex-1 justify-center sm:justify-start">
-                                            <input type="radio" name="log_type" value="individual" checked class="w-5 h-5 text-yellow-600 focus:ring-yellow-500">
-                                            <span class="text-sm font-bold text-stone-700 uppercase">Colaborador (Individual)</span>
-                                        </label>
-                                        <label class="flex items-center gap-3 cursor-pointer flex-1 justify-center sm:justify-start">
-                                            <input type="radio" name="log_type" value="setor" class="w-5 h-5 text-yellow-600 focus:ring-yellow-500">
-                                            <span class="text-sm font-bold text-stone-700 uppercase">Setor Inteiro (Coletivo)</span>
-                                        </label>
-                                    </div>
-
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div id="div_emp" class="space-y-2">
-                                            <label class="block text-xs font-bold text-stone-500 uppercase">Alvo: Colaborador</label>
-                                            <div class="relative">
-                                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400"><i class="fa-solid fa-search"></i></div>
-                                                <input type="text" id="log_emp_search" placeholder="Buscar..." class="w-full pl-9 p-3 text-sm border border-stone-300 rounded-t-lg outline-none focus:border-yellow-500 bg-white">
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-xs font-bold text-stone-500 uppercase mb-2">1. Selecione o Setor</label>
+                                                <select id="log_sec_select" class="w-full p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-stone-50 shadow-inner">
+                                                    <option value="">Escolha um setor...</option>
+                                                    <option value="todos" class="font-bold text-stone-700">Listar Todos os Colaboradores</option>
+                                                    ${sectorOpts}
+                                                </select>
                                             </div>
-                                            <select id="log_emp" size="5" class="w-full p-2 text-sm border border-t-0 border-stone-300 rounded-b-lg outline-none bg-stone-50 shadow-inner">
-                                                <option value="" class="hidden">Selecione...</option>${empOpts}
-                                            </select>
-                                        </div>
-
-                                        <div id="div_sec" class="hidden space-y-2">
-                                            <label class="block text-xs font-bold text-stone-500 uppercase">Alvo: Setor</label>
-                                            <select id="log_sec" class="w-full p-4 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white shadow-inner">
-                                                <option value="">Selecione o setor...</option>${sectorOpts}
-                                            </select>
-                                            <p class="text-[10px] text-red-500 font-bold italic mt-2">Atenção: A penalidade será aplicada a todos os colaboradores vinculados ao setor selecionado.</p>
+                                            
+                                            <div id="emps_container" class="hidden flex flex-col h-64 border border-stone-200 rounded-lg overflow-hidden shadow-sm animate-fade-in">
+                                                <div class="bg-stone-100 p-3 border-b border-stone-200 flex justify-between items-center">
+                                                    <label class="flex items-center gap-2 cursor-pointer text-sm font-bold text-stone-700 hover:text-yellow-700 transition-colors">
+                                                        <input type="checkbox" id="log_select_all" class="w-4 h-4 text-yellow-600 rounded focus:ring-yellow-500 border-stone-300">
+                                                        Marcar Todos
+                                                    </label>
+                                                    <span id="log_emp_count" class="text-[10px] uppercase text-stone-500 font-bold bg-white px-2 py-1 rounded border border-stone-200 shadow-sm">0 selecionados</span>
+                                                </div>
+                                                <div id="emps_list" class="flex-1 overflow-y-auto p-2 space-y-1 bg-white custom-scrollbar">
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div class="space-y-6">
                                             <div>
-                                                <label class="block text-xs font-bold text-stone-500 uppercase mb-2">Data e Ocorrência</label>
+                                                <label class="block text-xs font-bold text-stone-500 uppercase mb-2">2. Data e Ocorrência</label>
                                                 <div class="flex gap-4 mb-4">
                                                     <input type="date" id="log_date" value="${today}" required class="w-1/3 p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white">
                                                     <select id="log_rule" required class="flex-1 p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white">
@@ -914,7 +947,7 @@
                                                     </select>
                                                 </div>
                                                 
-                                                <label class="block text-xs font-bold text-stone-500 uppercase mb-2">Observação (Opcional)</label>
+                                                <label class="block text-xs font-bold text-stone-500 uppercase mb-2">3. Observação (Opcional)</label>
                                                 <textarea id="log_obs" rows="3" placeholder="Descreva os detalhes..." class="w-full p-3 text-sm border border-stone-300 rounded-lg outline-none focus:border-yellow-500 bg-white resize-none"></textarea>
                                             </div>
                                             
@@ -1282,7 +1315,7 @@
             }
         });
 
-        // Formulários Controlados (Lógica Inalterada, IDs preservados)
+        // Formulários Controlados
         document.addEventListener('submit', async (e) => {
             const formId = e.target.id;
             e.preventDefault();
@@ -1341,44 +1374,41 @@
                 }
 
                 if (formId === 'log_form') {
-                    const logType = document.querySelector('input[name="log_type"]:checked').value;
                     const date = document.getElementById('log_date').value;
                     const ruleId = document.getElementById('log_rule').value;
                     const obs = document.getElementById('log_obs').value;
                     
                     if(!date || !ruleId) return window.app.toast("Preencha todos os campos.", "error");
-                    const monthId = window.app.getMonthId(new Date(date + 'T12:00:00'));
                     
-                    if (logType === 'individual') {
-                        const empId = document.getElementById('log_emp').value;
-                        if(!empId) return window.app.toast("Selecione o colaborador.", "error");
-                        
-                        const id = window.app.generateId();
-                        if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/logs`, id), { employeeId: empId, date, ruleId, monthId, timestamp: Date.now(), obs: obs || '' });
+                    const checkedBoxes = document.querySelectorAll('.log-emp-cb:checked');
+                    if (checkedBoxes.length === 0) return window.app.toast("Selecione pelo menos um colaborador na lista.", "error");
+
+                    const monthId = window.app.getMonthId(new Date(date + 'T12:00:00'));
+                    const isMultiple = checkedBoxes.length > 1;
+
+                    if(confirm(`Aplicar penalidade para ${checkedBoxes.length} colaborador(es) selecionado(s)?`)) {
+                        if(db) {
+                            const promises = Array.from(checkedBoxes).map(cb => {
+                                const empId = cb.value;
+                                const safeObs = obs ? obs.replace(/'/g, "\\'").replace(/"/g, "&quot;") : '';
+                                const finalObs = isMultiple && safeObs ? safeObs + ' (Lote)' : (isMultiple && !safeObs ? 'Penalidade em Lote' : safeObs);
+
+                                return setDoc(doc(db, `artifacts/${appId}/public/data/logs`, window.app.generateId()), { 
+                                    employeeId: empId, 
+                                    date, 
+                                    ruleId, 
+                                    monthId, 
+                                    timestamp: Date.now(), 
+                                    obs: finalObs || '' 
+                                });
+                            });
+                            await Promise.all(promises);
+                        }
                         
                         document.getElementById('log_form').reset();
                         document.getElementById('log_date').value = date;
-                        if(document.getElementById('log_emp_search')) document.getElementById('log_emp_search').value = '';
-                        window.app.filterLogEmp(''); 
-                        window.app.toast("Erro registado.", "success");
-                    } else {
-                        const secId = document.getElementById('log_sec').value;
-                        if(!secId) return window.app.toast("Selecione o setor.", "error");
-                        
-                        const emps = state.employees.filter(emp => emp.sectorId === secId);
-                        if(emps.length === 0) return window.app.toast("Setor vazio.", "error");
-                        const safeObs = obs ? obs.replace(/'/g, "\\'").replace(/"/g, "&quot;") : '';
-                        
-                        if(confirm(`Descontar os ${emps.length} colaboradores do setor?`)) {
-                            if(db) {
-                                await Promise.all(emps.map(emp => {
-                                    return setDoc(doc(db, `artifacts/${appId}/public/data/logs`, window.app.generateId()), { employeeId: emp.id, date, ruleId, monthId, timestamp: Date.now(), obs: (safeObs ? safeObs + ' (Setor)' : 'Penalidade do Setor') });
-                                }));
-                            }
-                            document.getElementById('log_form').reset();
-                            document.getElementById('log_date').value = date;
-                            window.app.toast("Erros registados no setor.", "success");
-                        }
+                        document.getElementById('emps_container').classList.add('hidden');
+                        window.app.toast("Registo efetuado com sucesso.", "success");
                     }
                 }
 
@@ -1418,20 +1448,22 @@
             if (e.target.id === 'hist_month' || e.target.id === 'hist_sec') window.app.renderLogsHistoryList();
             if (e.target.id === 'report_month' || e.target.id === 'higiene_date') window.app.render();
             
-            if (e.target.name === 'log_type') {
-                if (e.target.value === 'individual') {
-                    document.getElementById('div_emp').classList.remove('hidden');
-                    document.getElementById('div_sec').classList.add('hidden');
-                } else {
-                    document.getElementById('div_emp').classList.add('hidden');
-                    document.getElementById('div_sec').classList.remove('hidden');
-                }
+            // Lógica do novo formulário de lançamentos
+            if (e.target.id === 'log_sec_select') {
+                window.app.renderLogEmpsChecklist(e.target.value);
+            }
+            if (e.target.id === 'log_select_all') {
+                const checkboxes = document.querySelectorAll('.log-emp-cb');
+                checkboxes.forEach(cb => cb.checked = e.target.checked);
+                window.app.updateLogEmpCount();
+            }
+            if (e.target.classList.contains('log-emp-cb')) {
+                window.app.updateLogEmpCount();
             }
         });
 
         document.addEventListener('input', (e) => {
             if (e.target.id === 'search_colab') window.app.filterColaboradores();
-            if (e.target.id === 'log_emp_search') window.app.filterLogEmp(e.target.value);
             if (e.target.id === 'search_higiene') window.app.filterHigiene(e.target.value);
         });
 

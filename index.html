@@ -518,8 +518,14 @@
             filterColaboradores: () => {
                 const term = (document.getElementById('search_colab')?.value || '').toLowerCase();
                 const sortType = document.getElementById('sort_colab')?.value || 'name_asc';
+                const sectorFilter = document.getElementById('filter_sector_colab')?.value || '';
                 
-                let filtered = state.employees.filter(e => e.name.toLowerCase().includes(term));
+                let filtered = state.employees.filter(e => {
+                    const matchName = e.name.toLowerCase().includes(term);
+                    const matchSector = sectorFilter === '' || e.sectorId === sectorFilter;
+                    return matchName && matchSector;
+                });
+                
                 filtered.sort((a,b) => {
                     if (sortType === 'name_asc') return a.name.localeCompare(b.name);
                     if (sortType === 'name_desc') return b.name.localeCompare(a.name);
@@ -561,7 +567,7 @@
                         </div>
                     `;
                 }).join('');
-                container.innerHTML = items || '<div class="text-center p-6 text-stone-500">Nenhum encontrado.</div>';
+                container.innerHTML = items || '<div class="text-center p-6 text-stone-500 col-span-full">Nenhum encontrado.</div>';
             },
 
             filterLogEmp: (term) => {
@@ -745,6 +751,8 @@
                     `;
                 },
                 colaboradores: () => {
+                    const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
                     return `
                         <div class="flex items-center gap-3 mb-6">
                             <button data-nav="dashboard" class="text-stone-400 hover:text-stone-800 transition-colors" title="Voltar ao Painel">
@@ -757,10 +765,17 @@
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400"><i class="fa-solid fa-search"></i></div>
                                 <input type="text" id="search_colab" placeholder="Buscar..." class="w-full pl-10 p-3 bg-white border border-stone-300 rounded-xl text-stone-800 outline-none focus:border-yellow-500 text-sm">
                             </div>
+                            
+                            <select id="filter_sector_colab" class="p-3 bg-white border border-stone-300 rounded-xl outline-none focus:border-yellow-500 text-sm text-stone-600 w-full md:w-48">
+                                <option value="">Todos os Setores</option>
+                                ${sectorOpts}
+                            </select>
+
                             <select id="sort_colab" class="p-3 bg-white border border-stone-300 rounded-xl outline-none focus:border-yellow-500 text-sm text-stone-600 w-full md:w-48">
                                 <option value="name_asc">A-Z</option>
                                 <option value="sec_asc">Agrupar por Setor</option>
                             </select>
+                            
                             <div class="flex gap-2 w-full md:w-auto">
                                 <button data-action="showImportModal" class="flex-1 md:flex-none px-6 py-3 border border-stone-300 bg-white rounded-xl text-stone-600 font-bold text-sm shadow-sm flex justify-center items-center gap-2 hover:bg-stone-50"><i class="fa-solid fa-file-excel"></i> Importar</button>
                                 <button data-action="showEmployeeForm" class="flex-1 md:flex-none px-6 py-3 bg-yellow-500 text-white rounded-xl font-bold text-sm shadow-sm flex justify-center items-center gap-2 hover:bg-yellow-600"><i class="fa-solid fa-plus"></i> Novo</button>
@@ -1399,7 +1414,7 @@
                 }
             }
 
-            if (e.target.id === 'sort_colab') window.app.filterColaboradores();
+            if (e.target.id === 'sort_colab' || e.target.id === 'filter_sector_colab') window.app.filterColaboradores();
             if (e.target.id === 'hist_month' || e.target.id === 'hist_sec') window.app.renderLogsHistoryList();
             if (e.target.id === 'report_month' || e.target.id === 'higiene_date') window.app.render();
             

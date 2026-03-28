@@ -14,6 +14,9 @@
     <!-- SheetJS para Leitura de Planilhas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+    <!-- Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -130,7 +133,8 @@
             logs: [],
             prorations: [],
             hygieneChecks: [],
-            rules: []
+            rules: [],
+            chartInstances: {} // Para gerir a destruição/atualização dos gráficos
         };
 
         let db, auth, appId, unsubscribeFuncs = [];
@@ -206,18 +210,18 @@
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/sectors`)), (snap) => {
                 state.sectors = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if(state.sectors.length === 0) window.app.populateInitialSectors();
-                if(state.view === 'setores' || state.view === 'colaboradores' || state.view === 'lancamentos') window.app.render();
+                if(state.view === 'setores' || state.view === 'colaboradores' || state.view === 'lancamentos' || state.view === 'indicadores') window.app.render();
             }, (e) => console.error(e)));
 
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/rules`)), (snap) => {
                 state.rules = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if(state.rules.length === 0) window.app.populateInitialRules();
-                if(state.view === 'setores' || state.view === 'lancamentos' || state.view === 'relatorios' || state.view === 'dashboard') window.app.render();
+                if(state.view === 'setores' || state.view === 'lancamentos' || state.view === 'relatorios' || state.view === 'dashboard' || state.view === 'indicadores') window.app.render();
             }, (e) => console.error(e)));
 
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/logs`)), (snap) => {
                 state.logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                if(state.view === 'lancamentos' || state.view === 'relatorios' || state.view === 'dashboard') window.app.render();
+                if(state.view === 'lancamentos' || state.view === 'relatorios' || state.view === 'dashboard' || state.view === 'indicadores') window.app.render();
             }, (e) => console.error(e)));
 
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/prorations`)), (snap) => {
@@ -227,7 +231,7 @@
 
             unsubscribeFuncs.push(onSnapshot(query(collection(db, `${publicPath}/hygiene_checks`)), (snap) => {
                 state.hygieneChecks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                if (state.view === 'higiene' || state.view === 'relatorios' || state.view === 'lancamentos') window.app.render();
+                if (state.view === 'higiene' || state.view === 'relatorios' || state.view === 'lancamentos' || state.view === 'indicadores') window.app.render();
             }, (e) => console.error(e)));
         };
 
@@ -409,6 +413,173 @@
                 window.app.updateLogEmpCount();
             },
 
+            filterHigiene: () => {
+                const term = (document.getElementById('search_higiene')?.value || '').toLowerCase();
+                const sectorId = document.getElementById('filter_sector_higiene')?.value || '';
+
+                document.querySelectorAll('.sector-group').forEach(group => {
+                    const groupSecId = group.dataset.secid;
+                    let hasVisible = false;
+
+                    // Filtrar por setor primeiro
+                    if (sectorId !== '' && groupSecId !== sectorId) {
+                        group.style.display = 'none';
+                        return; 
+                    }
+
+                    // Filtrar por nome dentro do setor visível
+                    group.querySelectorAll('.higiene-emp-row').forEach(row => {
+                        if (row.dataset.name.includes(term)) { 
+                            row.style.display = 'flex'; 
+                            hasVisible = true; 
+                        } else { 
+                            row.style.display = 'none'; 
+                        }
+                    });
+
+                    group.style.display = hasVisible ? 'block' : 'none';
+                });
+            },
+
+            renderCharts: () => {
+                if(state.view !== 'indicadores') return;
+                
+                const monthId = document.getElementById('chart_month')?.value || window.app.getMonthId(new Date());
+                
+                // Filtrar dados para o mês
+                const monthLogs = state.logs.filter(l => l.monthId === monthId);
+                const monthHygiene = state.hygieneChecks.filter(h => (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId));
+                
+                // 1. Preparar Dados: Pareto (Ocorrências por Regra)
+                const ruleCounts = {};
+                monthLogs.forEach(l => {
+                    const ruleName = l.ruleId === 'zerar_gratificacao' ? 'Zerado 100%' : (state.rules.find(r => r.id === l.ruleId)?.name || 'Outro');
+                    ruleCounts[ruleName] = (ruleCounts[ruleName] || 0) + 1;
+                });
+                if (monthHygiene.length > 0) {
+                    ruleCounts['Higiene Pessoal'] = monthHygiene.length;
+                }
+
+                const paretoData = Object.entries(ruleCounts)
+                    .map(([name, count]) => ({ name, count }))
+                    .sort((a,b) => b.count - a.count); // Ordem decrescente
+                
+                const totalErrors = paretoData.reduce((acc, curr) => acc + curr.count, 0);
+                
+                const labelsPareto = [];
+                const dataParetoCounts = [];
+                const dataParetoCumPct = [];
+                let cumulative = 0;
+
+                paretoData.forEach(item => {
+                    labelsPareto.push(item.name);
+                    dataParetoCounts.push(item.count);
+                    cumulative += item.count;
+                    dataParetoCumPct.push(totalErrors > 0 ? (cumulative / totalErrors) * 100 : 0);
+                });
+
+                // 2. Preparar Dados: Pizza (Ocorrências por Setor)
+                const sectorCounts = {};
+                [...monthLogs, ...monthHygiene.map(h => ({...h, isHygiene: true}))].forEach(log => {
+                    const emp = state.employees.find(e => e.id === log.employeeId);
+                    if (emp) {
+                        const sec = state.sectors.find(s => s.id === emp.sectorId);
+                        const secName = sec ? sec.name : 'Geral';
+                        sectorCounts[secName] = (sectorCounts[secName] || 0) + 1;
+                    }
+                });
+
+                const pieLabels = Object.keys(sectorCounts);
+                const pieData = Object.values(sectorCounts);
+
+                // Destruir instâncias antigas para não sobrepor gráficos no canvas
+                if (state.chartInstances.pareto) state.chartInstances.pareto.destroy();
+                if (state.chartInstances.pie) state.chartInstances.pie.destroy();
+
+                // Renderizar Gráfico de Pareto
+                const ctxPareto = document.getElementById('chartPareto');
+                if (ctxPareto) {
+                    state.chartInstances.pareto = new Chart(ctxPareto, {
+                        type: 'bar',
+                        data: {
+                            labels: labelsPareto,
+                            datasets: [
+                                {
+                                    type: 'line',
+                                    label: '% Acumulado',
+                                    data: dataParetoCumPct,
+                                    borderColor: '#dc2626', // red-600
+                                    backgroundColor: '#dc2626',
+                                    yAxisID: 'y1',
+                                    tension: 0.1,
+                                    borderWidth: 2,
+                                    pointRadius: 4
+                                },
+                                {
+                                    type: 'bar',
+                                    label: 'Quantidade',
+                                    data: dataParetoCounts,
+                                    backgroundColor: '#eab308', // yellow-500
+                                    yAxisID: 'y',
+                                    borderRadius: 4
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'top' },
+                                title: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'left',
+                                    beginAtZero: true,
+                                    title: { display: true, text: 'Total de Ocorrências' }
+                                },
+                                y1: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'right',
+                                    beginAtZero: true,
+                                    max: 100,
+                                    grid: { drawOnChartArea: false }, // só mostra a grelha de um eixo
+                                    title: { display: true, text: '% Acumulado' }
+                                },
+                            }
+                        }
+                    });
+                }
+
+                // Renderizar Gráfico de Pizza
+                const ctxPie = document.getElementById('chartPie');
+                if (ctxPie) {
+                    state.chartInstances.pie = new Chart(ctxPie, {
+                        type: 'doughnut',
+                        data: {
+                            labels: pieLabels,
+                            datasets: [{
+                                data: pieData,
+                                backgroundColor: [
+                                    '#eab308', '#dc2626', '#3b82f6', '#10b981', '#8b5cf6', '#f97316', '#64748b'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'right' }
+                            }
+                        }
+                    });
+                }
+            },
+
             render: () => {
                 const container = document.getElementById('app-container');
                 if(!container) return;
@@ -422,6 +593,7 @@
                     case 'higiene': content = window.app.views.higiene(); break;
                     case 'proporcionais': content = window.app.views.proporcionais(); break;
                     case 'relatorios': content = window.app.views.relatorios(); break;
+                    case 'indicadores': content = window.app.views.indicadores(); break;
                     case 'configuracoes': content = window.app.views.configuracoes(); break;
                 }
                 
@@ -429,6 +601,7 @@
 
                 if (state.view === 'colaboradores') window.app.filterColaboradores();
                 if (state.view === 'lancamentos' && state.logTab === 'historico') window.app.renderLogsHistoryList();
+                if (state.view === 'indicadores') setTimeout(window.app.renderCharts, 50); // Dá tempo ao DOM de atualizar o HTML antes de chamar o Chart.js
             },
 
             // Modais
@@ -565,22 +738,26 @@
                     <form id="form-proration" class="p-6 space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Colaborador</label>
-                            <select id="pro_emp" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">${empOpts}</select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Mês Ref.</label>
-                            <input type="month" id="pro_month" value="${currentMonth}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
+                            <select id="pro_emp" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
+                                <option value="">Selecione...</option>
+                                ${empOpts}
+                            </select>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Dias Trab.</label>
-                                <input type="number" min="0" max="31" id="pro_days" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Mês Ref.</label>
+                                <input type="month" id="pro_month" value="${currentMonth}" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Dias Mês</label>
-                                <input type="number" min="28" max="31" id="pro_total" value="30" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
+                                <label class="block text-xs font-bold text-stone-500 uppercase mb-1">Data Entrada/Retorno</label>
+                                <input type="date" id="pro_entry_date" required class="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg outline-none focus:border-yellow-500 text-sm">
                             </div>
                         </div>
+                        <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-center">
+                            <p class="text-xs text-yellow-800 font-bold uppercase mb-1">Dias a Receber no Mês</p>
+                            <p class="text-lg font-black text-yellow-600" id="pro_calc_preview">--</p>
+                        </div>
+                        
                         <div class="flex gap-2 pt-2">
                             <button type="button" data-action="closeModal" class="flex-1 py-3 border border-stone-300 rounded-lg font-bold text-stone-600">Cancelar</button>
                             <button type="submit" class="flex-1 py-3 bg-yellow-500 text-white rounded-lg font-bold hover:bg-yellow-600">Salvar</button>
@@ -589,130 +766,6 @@
                 `);
             },
             
-            filterColaboradores: () => {
-                const term = (document.getElementById('search_colab')?.value || '').toLowerCase();
-                const sortType = document.getElementById('sort_colab')?.value || 'name_asc';
-                const sectorFilter = document.getElementById('filter_sector_colab')?.value || '';
-                
-                let filtered = state.employees.filter(e => {
-                    const matchName = e.name.toLowerCase().includes(term);
-                    const matchSector = sectorFilter === '' || e.sectorId === sectorFilter;
-                    return matchName && matchSector;
-                });
-                
-                filtered.sort((a,b) => {
-                    if (sortType === 'name_asc') return a.name.localeCompare(b.name);
-                    if (sortType === 'name_desc') return b.name.localeCompare(a.name);
-                    if (sortType === 'sec_asc') {
-                        const secA = state.sectors.find(s => s.id === a.sectorId)?.name || 'Z';
-                        const secB = state.sectors.find(s => s.id === b.sectorId)?.name || 'Z';
-                        return secA.localeCompare(secB) || a.name.localeCompare(b.name);
-                    }
-                    return 0;
-                });
-
-                const container = document.getElementById('colab_list');
-                if(!container) return;
-
-                const items = filtered.map(emp => {
-                    const sec = state.sectors.find(s => s.id === emp.sectorId);
-                    const roleName = emp.role === 'lider' ? '<span class="text-[10px] bg-stone-200 px-2 py-0.5 rounded border border-stone-300 font-bold uppercase">Líder</span>' : '<span class="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded font-bold uppercase">Liderado</span>';
-                    let baseVal = emp.customBaseValue ? emp.customBaseValue : (sec ? (emp.role === 'lider' ? sec.val_lider : sec.val_liderado) : 0);
-                    const valDisplay = emp.customBaseValue 
-                        ? `<span class="text-green-600 font-bold text-sm">${window.app.formatBRL(baseVal)} *</span>` 
-                        : `<span class="text-stone-700 font-bold text-sm">${window.app.formatBRL(baseVal)}</span>`;
-
-                    return `
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center animate-fade-in">
-                            <div>
-                                <p class="font-bold text-stone-800 leading-tight">${emp.name}</p>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span class="text-xs text-stone-500">${sec ? sec.name : 'N/A'}</span>
-                                    ${roleName}
-                                </div>
-                            </div>
-                            <div class="text-right flex flex-col items-end gap-2">
-                                ${valDisplay}
-                                <div class="flex gap-2">
-                                    <button data-action="showEmployeeForm" data-id="${emp.id}" class="p-1.5 bg-stone-100 rounded text-stone-500 hover:text-yellow-600"><i class="fa-solid fa-pen"></i></button>
-                                    <button data-action="deleteEmployee" data-id="${emp.id}" class="p-1.5 bg-stone-100 rounded text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                container.innerHTML = items || '<div class="text-center p-6 text-stone-500 col-span-full">Nenhum encontrado.</div>';
-            },
-
-            filterHigiene: (term) => {
-                term = term.toLowerCase();
-                document.querySelectorAll('.sector-group').forEach(group => {
-                    let hasVisible = false;
-                    group.querySelectorAll('.higiene-emp-row').forEach(row => {
-                        if (row.dataset.name.includes(term)) { row.style.display = 'flex'; hasVisible = true; } 
-                        else { row.style.display = 'none'; }
-                    });
-                    group.style.display = hasVisible ? 'block' : 'none';
-                });
-            },
-
-            renderLogsHistoryList: () => {
-                const month = document.getElementById('hist_month')?.value || window.app.getMonthId(new Date());
-                const sectorId = document.getElementById('hist_sec')?.value || '';
-                
-                let filteredLogs = state.logs.filter(l => l.monthId === month);
-                let filteredHygiene = state.hygieneChecks.filter(h => (h.monthId || window.app.getMonthId(new Date(h.date + 'T12:00:00'))) === month);
-                
-                if (sectorId) {
-                    const empsInSec = state.employees.filter(e => e.sectorId === sectorId).map(e => e.id);
-                    filteredLogs = filteredLogs.filter(l => empsInSec.includes(l.employeeId));
-                    filteredHygiene = filteredHygiene.filter(h => empsInSec.includes(h.employeeId));
-                }
-
-                const hygieneAsLogs = filteredHygiene.map(h => ({
-                    id: h.id, employeeId: h.employeeId, date: h.date, ruleId: 'higiene', obs: h.obs, timestamp: h.timestamp, isHygiene: true
-                }));
-
-                const allRecords = [...filteredLogs, ...hygieneAsLogs].sort((a,b) => b.timestamp - a.timestamp);
-                const container = document.getElementById('log_history_container');
-                if (!container) return;
-
-                // Definindo as classes do grid aqui também
-                container.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8";
-
-                if (allRecords.length === 0) {
-                    container.innerHTML = '<div class="p-6 text-center text-stone-500 bg-white rounded-xl border border-stone-200 shadow-sm col-span-full">Nenhum registo encontrado.</div>';
-                    return;
-                }
-
-                container.innerHTML = allRecords.map(log => {
-                    const emp = state.employees.find(e => e.id === log.employeeId);
-                    const sec = state.sectors.find(s => s.id === emp?.sectorId);
-                    const rule = state.rules.find(r => r.id === log.ruleId);
-                    const dateStr = log.date ? log.date.split('-').reverse().join('/') : '--';
-                    const obsSnippet = log.obs ? `<div class="text-xs text-stone-600 bg-stone-50 p-2 rounded border border-stone-200 mt-2 italic">Obs: ${log.obs}</div>` : '';
-                    const deleteAction = log.isHygiene ? 'deleteHygieneRecord' : 'deleteLog';
-                    
-                    // Identifica se foi uma ação de zerar gratificação
-                    const ruleName = log.ruleId === 'zerar_gratificacao' ? 'Zerado (100%)' : (rule ? rule.name : (log.isHygiene ? 'Higiene' : 'Infração'));
-
-                    return `
-                        <div class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm animate-fade-in relative flex flex-col justify-between">
-                            <button data-action="${deleteAction}" data-id="${log.id}" class="absolute top-4 right-4 text-red-500 bg-stone-100 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>
-                            <div class="pr-10">
-                                <span class="text-[10px] font-bold text-stone-400 uppercase"><i class="fa-solid fa-calendar mr-1"></i> ${dateStr}</span>
-                                <h4 class="font-bold text-stone-800 text-sm mt-1">${emp ? emp.name : 'Desconhecido'}</h4>
-                                <div class="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span class="text-[10px] bg-stone-100 border px-1.5 rounded text-stone-500">${sec ? sec.name : 'Geral'}</span>
-                                    <span class="text-xs font-bold text-red-600">${ruleName}</span>
-                                </div>
-                                ${obsSnippet}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            },
-
             // VIEWS (Estilo Paisagem / Responsivo Wide)
             views: {
                 dashboard: () => {
@@ -735,7 +788,7 @@
                             <div class="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
                                 <div class="mb-2 md:mb-0">
                                     ${state.settings?.logo ? `<img src="${state.settings.logo}" class="h-16 object-contain mb-2 drop-shadow-md">` : `<h1 class="text-2xl font-bold text-stone-900"><i class="fa-solid fa-hand-holding-dollar mr-2"></i>Gratificações</h1>`}
-                                    <p class="text-stone-800 text-sm font-medium">Gestão Financeira e Indicadores</p>
+                                    <p class="text-stone-800 text-sm font-medium">Gestão da Gratificação Mensal</p>
                                 </div>
                                 <div class="bg-white/90 backdrop-blur-md p-4 rounded-xl border border-yellow-200 shadow-sm flex gap-8 items-center w-full md:w-auto">
                                     <div>
@@ -793,24 +846,68 @@
                                     </div>
                                     <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
                                 </button>
+                                
+                                <button data-nav="indicadores" class="w-full p-4 rounded-xl flex items-center justify-between bg-blue-50 border border-blue-200 shadow-sm hover:border-blue-500 active:scale-95 transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-lg"><i class="fa-solid fa-chart-pie"></i></div>
+                                        <div class="text-left"><p class="font-bold text-blue-800">Indicadores e Gráficos</p><p class="text-xs text-blue-600">Histórico de ocorrências</p></div>
+                                    </div>
+                                    <span class="text-blue-500"><i class="fa-solid fa-chevron-right"></i></span>
+                                </button>
 
-                                <button data-nav="relatorios" class="w-full p-4 rounded-xl flex items-center justify-between bg-yellow-50 border border-yellow-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all">
+                                <button data-nav="relatorios" class="w-full p-4 rounded-xl flex items-center justify-between bg-yellow-50 border border-yellow-200 shadow-sm hover:border-yellow-500 active:scale-95 transition-all md:col-span-2 lg:col-span-2">
                                     <div class="flex items-center gap-4">
                                         <div class="h-10 w-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-lg"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-                                        <div class="text-left"><p class="font-bold text-yellow-800">Relatórios de Fecho</p><p class="text-xs text-yellow-600">Exportar PDFs para RH</p></div>
+                                        <div class="text-left"><p class="font-bold text-yellow-800">Relatórios</p><p class="text-xs text-yellow-600">Exportar PDFs para Dept. Pessoal</p></div>
                                     </div>
                                     <span class="text-yellow-500"><i class="fa-solid fa-chevron-right"></i></span>
                                 </button>
                                 
-                                <button data-nav="configuracoes" class="w-full p-4 rounded-xl flex items-center justify-between bg-stone-200/50 border border-stone-200 shadow-sm active:scale-95 transition-all lg:col-span-3">
+                                <button data-nav="configuracoes" class="w-full p-4 rounded-xl flex items-center justify-between bg-stone-200/50 border border-stone-200 shadow-sm active:scale-95 transition-all">
                                     <div class="flex items-center gap-4">
                                         <div class="h-8 w-8 rounded-full bg-stone-300 text-stone-600 flex items-center justify-center"><i class="fa-solid fa-cog"></i></div>
-                                        <div class="text-left"><p class="font-bold text-stone-700 text-sm">Definições e Backup</p></div>
+                                        <div class="text-left"><p class="font-bold text-stone-700 text-sm">Definições</p></div>
                                     </div>
-                                    <span class="text-stone-400"><i class="fa-solid fa-chevron-right"></i></span>
                                 </button>
                             </div>
                         </main>
+                    `;
+                },
+                indicadores: () => {
+                    const months = [...new Set([...state.logs, ...state.hygieneChecks].map(l => l.monthId || window.app.getMonthId(new Date(l.date+'T12:00:00')))), window.app.getMonthId(new Date())].sort().reverse();
+                    const monthOpts = months.map(m => `<option value="${m}">${m}</option>`).join('');
+
+                    return `
+                        <div class="flex items-center gap-3 mb-6">
+                            <button data-nav="dashboard" class="text-stone-400 hover:text-stone-800 transition-colors" title="Voltar ao Painel">
+                                <i class="fa-solid fa-arrow-left text-xl"></i>
+                            </button>
+                            <h2 class="font-black text-stone-800 text-xl m-0">Indicadores e Gráficos</h2>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between animate-fade-in">
+                            <h3 class="text-sm font-bold text-stone-500 uppercase"><i class="fa-solid fa-chart-line mr-2"></i> Histórico Mensal</h3>
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <label class="text-xs font-bold text-stone-500 uppercase">Mês:</label>
+                                <select id="chart_month" class="p-2 border border-stone-300 rounded-lg outline-none focus:border-blue-500 bg-stone-50 text-sm font-bold flex-1 sm:w-48">${monthOpts}</select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 lg:col-span-2 animate-fade-in">
+                                <h3 class="font-bold text-stone-800 text-base mb-4 text-center">Diagrama de Pareto (Ocorrências por Infração)</h3>
+                                <div class="relative h-72 w-full">
+                                    <canvas id="chartPareto"></canvas>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 animate-fade-in">
+                                <h3 class="font-bold text-stone-800 text-base mb-4 text-center">Ocorrências por Setor</h3>
+                                <div class="relative h-72 w-full">
+                                    <canvas id="chartPie"></canvas>
+                                </div>
+                            </div>
+                        </div>
                     `;
                 },
                 colaboradores: () => {
@@ -1004,6 +1101,7 @@
                 },
                 higiene: () => {
                     const today = document.getElementById('higiene_date')?.value || new Date().toISOString().split('T')[0];
+                    const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                     let sectorsHtml = '';
                     const grouped = {};
                     state.employees.forEach(emp => { if(!grouped[emp.sectorId]) grouped[emp.sectorId] = []; grouped[emp.sectorId].push(emp); });
@@ -1018,14 +1116,15 @@
                             const isChecked = !!infraction;
                             const obsValue = infraction ? (infraction.obs || '') : '';
 
+                            // Corrigida a estrutura HTML da label para posicionar a bolinha perfeitamente ("relative" na div e não na label)
                             return `
                             <div class="higiene-emp-row flex flex-col justify-center p-4 border border-stone-200 rounded-xl hover:border-yellow-400 hover:shadow-md transition-all bg-white" data-name="${emp.name.toLowerCase()}">
                                 <div class="flex items-center justify-between gap-3">
                                     <span class="text-stone-800 font-bold text-sm leading-tight flex-1">${emp.name}</span>
-                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <label class="flex items-center cursor-pointer shrink-0">
                                         <span class="mr-2 text-[10px] sm:text-xs font-black uppercase ${isChecked ? 'text-red-500' : 'text-green-600'}">${isChecked ? 'Penalizado' : 'Tudo OK'}</span>
                                         <input type="checkbox" class="sr-only peer hygiene-checkbox" data-empid="${emp.id}" data-date="${today}" ${isChecked ? 'checked' : ''}>
-                                        <div class="w-11 h-6 bg-green-500 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                                        <div class="relative w-11 h-6 bg-green-500 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                                     </label>
                                 </div>
                                 ${isChecked ? `
@@ -1035,7 +1134,7 @@
                                 ` : ''}
                             </div>`;
                         }).join('');
-                        sectorsHtml += `<div class="mb-6 sector-group app-card !p-0 overflow-hidden shadow-sm"><h3 class="bg-stone-50 text-stone-700 px-5 py-3 border-b border-stone-200 font-black text-sm uppercase">${sec.name}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-stone-50/50">${empsHtml}</div></div>`;
+                        sectorsHtml += `<div class="mb-6 sector-group app-card !p-0 overflow-hidden shadow-sm" data-secid="${sec.id}"><h3 class="bg-stone-50 text-stone-700 px-5 py-3 border-b border-stone-200 font-black text-sm uppercase">${sec.name}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-stone-50/50">${empsHtml}</div></div>`;
                     });
 
                     return `
@@ -1046,11 +1145,16 @@
                             <h2 class="font-black text-stone-800 text-xl m-0">Inspeção Diária</h2>
                         </div>
                         <div class="space-y-6">
-                            <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-4">
+                            <div class="flex flex-col md:flex-row gap-4 items-center mb-4">
                                 <div class="bg-stone-50 border border-stone-200 p-3 rounded-xl text-sm text-stone-600 flex items-center justify-between w-full md:w-auto shadow-sm">
                                     <span class="font-bold uppercase text-[10px] mr-4"><i class="fa-solid fa-calendar mr-1"></i> Data:</span>
                                     <input type="date" id="higiene_date" value="${today}" class="p-1.5 border border-stone-300 bg-white focus:border-yellow-500 outline-none rounded font-bold text-stone-800">
                                 </div>
+                                
+                                <select id="filter_sector_higiene" class="p-3 bg-white border border-stone-300 rounded-xl text-sm outline-none focus:border-yellow-500 shadow-sm w-full md:w-48 text-stone-600">
+                                    <option value="">Todos os Setores</option>
+                                    ${sectorOpts}
+                                </select>
 
                                 <div class="relative w-full md:flex-1">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400"><i class="fa-solid fa-search"></i></div>
@@ -1089,6 +1193,7 @@
                     `;
                 },
                 relatorios: () => {
+                    // Mesma lógica de cálculo mantida intacta
                     window.app.calculateMonthlyReport = (monthId) => {
                         const report = [];
                         state.employees.forEach(emp => {
@@ -1125,7 +1230,6 @@
                                 totalDeductionPct += (Math.min(count, rule.max) * rule.pct);
                             });
                             
-                            // Se a ação de "zerar" foi disparada para o funcionário, a dedução é de 100%
                             if (isZerado) totalDeductionPct = 1;
                             if (totalDeductionPct > 1) totalDeductionPct = 1;
                             
@@ -1167,7 +1271,6 @@
                                 sectorLogsHtml += `<div class="mb-4 bg-white rounded-lg p-4 border border-stone-200" style="break-inside: avoid;"><p class="font-bold text-stone-800 text-base mb-3">${emp.name}</p><ul>${logsList}</ul></div>`;
                             });
                             
-                            // Adicionando a regra de quebra de página (page-break-before: always) para todos os setores após o primeiro
                             if(sectorLogsHtml) {
                                 const pageBreakStyle = sectorCount > 0 ? 'page-break-before: always;' : '';
                                 html += `<div class="mb-6" style="${pageBreakStyle}"><h3 class="bg-stone-100 text-stone-600 px-4 py-3 rounded-t-lg font-bold text-sm uppercase border border-stone-200 border-b-0">${sec.name}</h3><div class="p-4 border border-stone-200 rounded-b-lg bg-stone-50 grid grid-cols-1 md:grid-cols-2 gap-4">${sectorLogsHtml}</div></div>`;
@@ -1213,7 +1316,7 @@
                                 <button data-nav="dashboard" class="text-stone-400 hover:text-stone-800 transition-colors" title="Voltar ao Painel">
                                     <i class="fa-solid fa-arrow-left text-xl"></i>
                                 </button>
-                                <h2 class="text-2xl font-bold text-gray-800 m-0">Relatórios do RH</h2>
+                                <h2 class="text-2xl font-bold text-gray-800 m-0">Relatórios do Dept. Pessoal</h2>
                             </div>
                             
                             <div class="flex flex-col md:flex-row gap-4 no-print bg-white p-4 rounded-xl border border-stone-200 shadow-sm w-full md:w-auto">
@@ -1227,7 +1330,7 @@
 
                         <div class="flex border-b border-stone-200 bg-white sticky top-[60px] z-10 w-full justify-center mb-6">
                             <div class="flex w-full max-w-md md:max-w-2xl">
-                                <button data-action="setReportTab" data-id="fechamento" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'fechamento' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Valores e Fecho</button>
+                                <button data-action="setReportTab" data-id="fechamento" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'fechamento' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Valores</button>
                                 <button data-action="setReportTab" data-id="erros" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'erros' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Análise de Erros</button>
                             </div>
                         </div>
@@ -1388,9 +1491,22 @@
                 if (formId === 'form-proration') {
                     const empId = document.getElementById('pro_emp').value;
                     const monthId = document.getElementById('pro_month').value;
-                    const daysWorked = Number(document.getElementById('pro_days').value);
-                    const totalDays = Number(document.getElementById('pro_total').value);
-                    if(!empId || !monthId || !daysWorked || !totalDays) return;
+                    const entryDate = document.getElementById('pro_entry_date').value;
+                    
+                    if(!empId || !monthId || !entryDate) return window.app.toast("Preencha os campos obrigatórios.", "error");
+
+                    const [year, month] = monthId.split('-');
+                    const totalDays = new Date(year, month, 0).getDate();
+                    const entry = new Date(entryDate + 'T12:00:00');
+                    const refStart = new Date(year, month - 1, 1);
+                    const refEnd = new Date(year, month, 0);
+                    
+                    let daysWorked = totalDays;
+                    if (entry > refEnd) {
+                        daysWorked = 0;
+                    } else if (entry >= refStart) {
+                        daysWorked = totalDays - entry.getDate() + 1;
+                    }
 
                     const id = `${empId}_${monthId}`;
                     if(db) await setDoc(doc(db, `artifacts/${appId}/public/data/prorations`, id), { employeeId: empId, monthId, daysWorked, totalDays });
@@ -1409,7 +1525,6 @@
                     if (checkedBoxes.length === 0) return window.app.toast("Selecione pelo menos um colaborador na lista.", "error");
 
                     const monthId = window.app.getMonthId(new Date(date + 'T12:00:00'));
-                    const isMultiple = checkedBoxes.length > 1;
 
                     if(confirm(`Aplicar penalidade para ${checkedBoxes.length} colaborador(es) selecionado(s)?`)) {
                         if(db) {
@@ -1471,7 +1586,13 @@
             if (e.target.id === 'sort_colab' || e.target.id === 'filter_sector_colab') window.app.filterColaboradores();
             if (e.target.id === 'hist_month' || e.target.id === 'hist_sec') window.app.renderLogsHistoryList();
             if (e.target.id === 'report_month' || e.target.id === 'higiene_date') window.app.render();
+            if (e.target.id === 'chart_month') window.app.renderCharts();
             
+            // Lógica do filtro da página de Higiene
+            if (e.target.id === 'filter_sector_higiene') {
+                window.app.filterHigiene();
+            }
+
             // Lógica do novo formulário de lançamentos
             if (e.target.id === 'log_sec_select') {
                 window.app.renderLogEmpsChecklist(e.target.value);
@@ -1491,7 +1612,28 @@
         document.addEventListener('input', (e) => {
             if (e.target.id === 'search_colab') window.app.filterColaboradores();
             if (e.target.id === 'log_emp_search') window.app.filterLogEmpChecklist(e.target.value);
-            if (e.target.id === 'search_higiene') window.app.filterHigiene(e.target.value);
+            if (e.target.id === 'search_higiene') window.app.filterHigiene();
+            
+            // Calculador dinâmico do formulário "Proporcionais"
+            if (e.target.id === 'pro_entry_date' || e.target.id === 'pro_month') {
+                const monthVal = document.getElementById('pro_month')?.value;
+                const dateVal = document.getElementById('pro_entry_date')?.value;
+                const preview = document.getElementById('pro_calc_preview');
+                
+                if (monthVal && dateVal && preview) {
+                    const [year, month] = monthVal.split('-');
+                    const totalDays = new Date(year, month, 0).getDate();
+                    const entry = new Date(dateVal + 'T12:00:00');
+                    const refStart = new Date(year, month - 1, 1);
+                    const refEnd = new Date(year, month, 0);
+                    
+                    let days = totalDays;
+                    if (entry > refEnd) days = 0;
+                    else if (entry >= refStart) days = totalDays - entry.getDate() + 1;
+                    
+                    preview.innerText = `${days} de ${totalDays} dias`;
+                }
+            }
         });
 
         document.addEventListener('focusout', async (e) => {

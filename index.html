@@ -564,7 +564,10 @@
                             datasets: [{
                                 data: pieData,
                                 backgroundColor: [
-                                    '#eab308', '#dc2626', '#3b82f6', '#10b981', '#8b5cf6', '#f97316', '#64748b'
+                                    '#eab308', '#dc2626', '#3b82f6', '#10b981', '#8b5cf6', '#f97316', '#64748b',
+                                    '#ec4899', '#0ea5e9', '#84cc16', '#14b8a6', '#f43f5e', '#a855f7', '#6366f1',
+                                    '#f59e0b', '#22c55e', '#d946ef', '#06b6d4', '#3f6212', '#7f1d1d', '#1e3a8a',
+                                    '#4c1d95', '#831843', '#14532d'
                                 ],
                                 borderWidth: 1
                             }]
@@ -970,7 +973,7 @@
                             </div>
                             <div class="flex gap-2 flex-col md:flex-row">
                                 <button data-action="showRuleForm" data-id="${rule.id}" class="p-1.5 bg-stone-100 rounded text-stone-500 hover:text-yellow-600 text-xs text-center"><i class="fa-solid fa-pen"></i></button>
-                                ${rule.id !== 'higiene' ? `<button data-action="deleteRule" data-id="${rule.id}" class="p-1.5 bg-stone-100 rounded text-red-500 hover:text-red-700 text-xs text-center"><i class="fa-solid fa-trash"></i></button>` : ''}
+                                <button data-action="deleteRule" data-id="${rule.id}" class="p-1.5 bg-stone-100 rounded text-red-500 hover:text-red-700 text-xs text-center"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
                     `).join('');
@@ -1259,7 +1262,7 @@
                                     } else if (l.ruleId === 'higiene') {
                                         ruleName = 'Higiene Pessoal';
                                         const hRule = state.rules.find(r => r.id === 'higiene');
-                                        rulePct = hRule ? hRule.pct : 0.0333;
+                                        rulePct = hRule ? hRule.pct : 0;
                                     } else {
                                         const rule = state.rules.find(r => r.id === l.ruleId);
                                         if (rule) { ruleName = rule.name; rulePct = rule.pct; }
@@ -1422,7 +1425,6 @@
                     case 'executeDeleteSector': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/sectors`, id)); window.app.toast("Removido.", "success"); window.app.closeModal(); break;
 
                     case 'deleteRule':
-                        if (id === 'higiene') return window.app.toast("Higiene é nativa.", "error");
                         window.app.confirmAction("Remover critério?", "executeDeleteRule", id); break;
                     case 'executeDeleteRule': if(db) await deleteDoc(doc(db, `artifacts/${appId}/public/data/rules`, id)); window.app.toast("Removido.", "success"); window.app.closeModal(); break;
 

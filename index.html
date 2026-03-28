@@ -243,7 +243,15 @@
             },
             
             getMonthId: (dateObj) => {
+                 if (isNaN(dateObj.getTime())) return window.app.getMonthId(new Date()); // Prevenção de erro Invalid Date
                  return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+            },
+
+            // Função de segurança para extrair MonthId garantido sem erros de formatação
+            getSafeMonthId: (item) => {
+                if (item.monthId) return item.monthId;
+                if (item.date) return window.app.getMonthId(new Date(item.date + 'T12:00:00'));
+                return window.app.getMonthId(new Date());
             },
 
             formatBRL: (val) => Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
@@ -441,14 +449,75 @@
                 });
             },
 
+            renderLogsHistoryList: () => {
+                try {
+                    const month = document.getElementById('hist_month')?.value || window.app.getMonthId(new Date());
+                    const sectorId = document.getElementById('hist_sec')?.value || '';
+                    
+                    let filteredLogs = state.logs.filter(l => window.app.getSafeMonthId(l) === month);
+                    let filteredHygiene = state.hygieneChecks.filter(h => window.app.getSafeMonthId(h) === month);
+                    
+                    if (sectorId) {
+                        const empsInSec = state.employees.filter(e => e.sectorId === sectorId).map(e => e.id);
+                        filteredLogs = filteredLogs.filter(l => empsInSec.includes(l.employeeId));
+                        filteredHygiene = filteredHygiene.filter(h => empsInSec.includes(h.employeeId));
+                    }
+
+                    const hygieneAsLogs = filteredHygiene.map(h => ({
+                        id: h.id, employeeId: h.employeeId, date: h.date, ruleId: 'higiene', obs: h.obs, timestamp: h.timestamp, isHygiene: true
+                    }));
+
+                    const allRecords = [...filteredLogs, ...hygieneAsLogs].sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    const container = document.getElementById('log_history_container');
+                    if (!container) return;
+
+                    container.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8";
+
+                    if (allRecords.length === 0) {
+                        container.innerHTML = '<div class="p-6 text-center text-stone-500 bg-white rounded-xl border border-stone-200 shadow-sm col-span-full">Nenhum registo encontrado.</div>';
+                        return;
+                    }
+
+                    container.innerHTML = allRecords.map(log => {
+                        const emp = state.employees.find(e => e.id === log.employeeId);
+                        const sec = state.sectors.find(s => s.id === emp?.sectorId);
+                        const rule = state.rules.find(r => r.id === log.ruleId);
+                        const dateStr = log.date ? log.date.split('-').reverse().join('/') : '--/--/----';
+                        const obsSnippet = log.obs ? `<div class="text-xs text-stone-600 bg-stone-50 p-2 rounded border border-stone-200 mt-2 italic">Obs: ${log.obs}</div>` : '';
+                        const deleteAction = log.isHygiene ? 'deleteHygieneRecord' : 'deleteLog';
+                        
+                        const ruleName = log.ruleId === 'zerar_gratificacao' ? 'Zerado (100%)' : (rule ? rule.name : (log.isHygiene ? 'Higiene Pessoal' : 'Infração'));
+
+                        return `
+                            <div class="bg-white p-4 rounded-xl border border-stone-200 shadow-sm animate-fade-in relative flex flex-col justify-between">
+                                <button data-action="${deleteAction}" data-id="${log.id}" class="absolute top-4 right-4 text-red-500 bg-stone-100 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                <div class="pr-10">
+                                    <span class="text-[10px] font-bold text-stone-400 uppercase"><i class="fa-solid fa-calendar mr-1"></i> ${dateStr}</span>
+                                    <h4 class="font-bold text-stone-800 text-sm mt-1">${emp ? emp.name : '<span class="text-red-500 italic">Colab. Excluído</span>'}</h4>
+                                    <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                        <span class="text-[10px] bg-stone-100 border px-1.5 rounded text-stone-500">${sec ? sec.name : 'N/A'}</span>
+                                        <span class="text-xs font-bold text-red-600">${ruleName}</span>
+                                    </div>
+                                    ${obsSnippet}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } catch (e) {
+                    console.error("Erro ao renderizar histórico: ", e);
+                    const container = document.getElementById('log_history_container');
+                    if (container) container.innerHTML = '<div class="p-6 text-center text-red-500 bg-red-50 rounded-xl border border-red-200 shadow-sm col-span-full">Houve um erro ao processar o histórico. Verifique se os dados estão consistentes.</div>';
+                }
+            },
+
             renderCharts: () => {
                 if(state.view !== 'indicadores') return;
                 
                 const monthId = document.getElementById('chart_month')?.value || window.app.getMonthId(new Date());
                 
-                // Filtrar dados para o mês
-                const monthLogs = state.logs.filter(l => l.monthId === monthId);
-                const monthHygiene = state.hygieneChecks.filter(h => (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId));
+                // Filtrar dados para o mês com função segura
+                const monthLogs = state.logs.filter(l => window.app.getSafeMonthId(l) === monthId);
+                const monthHygiene = state.hygieneChecks.filter(h => window.app.getSafeMonthId(h) === monthId);
                 
                 // 1. Preparar Dados: Pareto (Ocorrências por Regra)
                 const ruleCounts = {};
@@ -778,8 +847,8 @@
                     if (window.app.calculateMonthlyReport) {
                         const report = window.app.calculateMonthlyReport(monthId);
                         totalPay = report.reduce((sum, r) => sum + r.finalValue, 0);
-                        totalErrors = state.logs.filter(l => l.monthId === monthId).length + 
-                                      state.hygieneChecks.filter(h => (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId)).length;
+                        totalErrors = state.logs.filter(l => window.app.getSafeMonthId(l) === monthId).length + 
+                                      state.hygieneChecks.filter(h => window.app.getSafeMonthId(h) === monthId).length;
                     }
 
                     return `
@@ -877,7 +946,7 @@
                     `;
                 },
                 indicadores: () => {
-                    const months = [...new Set([...state.logs, ...state.hygieneChecks].map(l => l.monthId || window.app.getMonthId(new Date(l.date+'T12:00:00')))), window.app.getMonthId(new Date())].sort().reverse();
+                    const months = [...new Set([...state.logs, ...state.hygieneChecks].map(window.app.getSafeMonthId)), window.app.getMonthId(new Date())].sort().reverse();
                     const monthOpts = months.map(m => `<option value="${m}">${m}</option>`).join('');
 
                     return `
@@ -1009,7 +1078,7 @@
                     
                     let content = '';
                     if (activeTab === 'historico') {
-                        const monthOpts = [...new Set([...state.logs, ...state.hygieneChecks].map(l => l.monthId||window.app.getMonthId(new Date(l.date+'T12:00:00')))), window.app.getMonthId(new Date())].sort().reverse().map(m => `<option value="${m}">${m}</option>`).join('');
+                        const monthOpts = [...new Set([...state.logs, ...state.hygieneChecks].map(window.app.getSafeMonthId)), window.app.getMonthId(new Date())].sort().reverse().map(m => `<option value="${m}">${m}</option>`).join('');
                         const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
                         content = `
@@ -1119,7 +1188,6 @@
                             const isChecked = !!infraction;
                             const obsValue = infraction ? (infraction.obs || '') : '';
 
-                            // Corrigida a estrutura HTML da label para posicionar a bolinha perfeitamente ("relative" na div e não na label)
                             return `
                             <div class="higiene-emp-row flex flex-col justify-center p-4 border border-stone-200 rounded-xl hover:border-yellow-400 hover:shadow-md transition-all bg-white" data-name="${emp.name.toLowerCase()}">
                                 <div class="flex items-center justify-between gap-3">
@@ -1212,7 +1280,7 @@
                                 proportionMsg = `${proration.daysWorked}/${proration.totalDays} dias`;
                             }
                             const empLogs = state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId);
-                            const empHygiene = state.hygieneChecks.filter(h => h.employeeId === emp.id && (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId));
+                            const empHygiene = state.hygieneChecks.filter(h => h.employeeId === emp.id && window.app.getSafeMonthId(h) === monthId);
                             
                             let totalDeductionPct = 0;
                             let isZerado = false;
@@ -1250,7 +1318,7 @@
                             if(emps.length === 0) return;
                             let sectorLogsHtml = '';
                             emps.forEach(emp => {
-                                const allLogs = [...state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId), ...state.hygieneChecks.filter(h => h.employeeId === emp.id && (h.monthId === monthId || window.app.getMonthId(new Date(h.date+'T12:00:00')) === monthId)).map(h => ({ ...h, ruleId: 'higiene' }))].sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
+                                const allLogs = [...state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId), ...state.hygieneChecks.filter(h => h.employeeId === emp.id && window.app.getSafeMonthId(h) === monthId).map(h => ({ ...h, ruleId: 'higiene' }))].sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
                                 if(allLogs.length === 0) return;
                                 const logsList = allLogs.map(l => {
                                     let ruleName = 'Desc.';
@@ -1283,7 +1351,126 @@
                         return html || '<div class="p-8 text-center text-stone-400 text-sm border border-dashed border-stone-300 rounded-xl">Sem erros registados.</div>';
                     };
 
-                    const months = [...new Set([...state.logs, ...state.hygieneChecks].map(l => l.monthId || window.app.getMonthId(new Date(l.date+'T12:00:00')))), window.app.getMonthId(new Date())].sort().reverse();
+                    window.app.generateComparativeReportHtml = (monthId) => {
+                        let [y, m] = monthId.split('-').map(Number);
+                        let prevM = m - 1;
+                        let prevY = y;
+                        if (prevM === 0) { prevM = 12; prevY -= 1; }
+                        const prevMonthId = `${prevY}-${String(prevM).padStart(2, '0')}`;
+
+                        // Histórico e Ocorrências
+                        const currLogs = state.logs.filter(l => l.monthId === monthId);
+                        const currHyg = state.hygieneChecks.filter(h => window.app.getSafeMonthId(h) === monthId);
+                        const prevLogs = state.logs.filter(l => l.monthId === prevMonthId);
+                        const prevHyg = state.hygieneChecks.filter(h => window.app.getSafeMonthId(h) === prevMonthId);
+
+                        const currTotal = currLogs.length + currHyg.length;
+                        const prevTotal = prevLogs.length + prevHyg.length;
+
+                        // Setores que Melhoraram / Pioraram
+                        const currSecCounts = {};
+                        const prevSecCounts = {};
+                        state.sectors.forEach(s => { currSecCounts[s.id] = 0; prevSecCounts[s.id] = 0; });
+
+                        const countSectorLogs = (logs, hyg, countsObj) => {
+                            logs.forEach(l => {
+                                const emp = state.employees.find(e => e.id === l.employeeId);
+                                if(emp && countsObj[emp.sectorId] !== undefined) countsObj[emp.sectorId]++;
+                            });
+                            hyg.forEach(h => {
+                                const emp = state.employees.find(e => e.id === h.employeeId);
+                                if(emp && countsObj[emp.sectorId] !== undefined) countsObj[emp.sectorId]++;
+                            });
+                        };
+                        countSectorLogs(currLogs, currHyg, currSecCounts);
+                        countSectorLogs(prevLogs, prevHyg, prevSecCounts);
+
+                        const improvedSectors = [];
+                        const worsenedSectors = [];
+                        state.sectors.forEach(s => {
+                            const diff = currSecCounts[s.id] - prevSecCounts[s.id];
+                            if (diff < 0) improvedSectors.push({ name: s.name, diff: Math.abs(diff), curr: currSecCounts[s.id], prev: prevSecCounts[s.id] });
+                            else if (diff > 0) worsenedSectors.push({ name: s.name, diff, curr: currSecCounts[s.id], prev: prevSecCounts[s.id] });
+                        });
+
+                        // Regras Mais e Menos Quebradas no mês ATUAL (Desconsiderando Zerar Gratificação)
+                        const ruleCounts = {};
+                        state.rules.forEach(r => ruleCounts[r.id] = { name: r.name, count: 0 });
+                        
+                        currLogs.forEach(l => {
+                            if (l.ruleId !== 'zerar_gratificacao' && ruleCounts[l.ruleId]) {
+                                ruleCounts[l.ruleId].count++;
+                            }
+                        });
+                        currHyg.forEach(h => {
+                            if (ruleCounts['higiene']) ruleCounts['higiene'].count++;
+                        });
+
+                        const activeRules = Object.values(ruleCounts).filter(r => r.count > 0).sort((a,b) => b.count - a.count);
+                        const mostBroken = activeRules.length > 0 ? activeRules[0] : null;
+                        const leastBroken = activeRules.length > 0 ? activeRules[activeRules.length - 1] : null;
+
+                        // Renderização
+                        let totalStatusHtml = '';
+                        if (currTotal < prevTotal) {
+                            totalStatusHtml = `<span class="text-green-600 font-bold"><i class="fa-solid fa-arrow-trend-down"></i> Melhorou (${currTotal} vs ${prevTotal})</span>`;
+                        } else if (currTotal > prevTotal) {
+                            totalStatusHtml = `<span class="text-red-600 font-bold"><i class="fa-solid fa-arrow-trend-up"></i> Piorou (${currTotal} vs ${prevTotal})</span>`;
+                        } else {
+                            totalStatusHtml = `<span class="text-stone-500 font-bold"><i class="fa-solid fa-minus"></i> Manteve Estável (${currTotal})</span>`;
+                        }
+
+                        const formatSectorList = (list, isImproved) => {
+                            if(list.length === 0) return '<p class="text-sm text-stone-500 italic">Nenhum setor registou essa variação.</p>';
+                            return list.map(s => `
+                                <div class="flex justify-between items-center py-2 border-b border-stone-100 last:border-0">
+                                    <span class="text-sm font-bold text-stone-700">${s.name}</span>
+                                    <span class="text-xs font-bold px-2 py-1 rounded ${isImproved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                        ${isImproved ? '-' : '+'}${s.diff} erro(s) <span class="font-normal opacity-75">(de ${s.prev} para ${s.curr})</span>
+                                    </span>
+                                </div>
+                            `).join('');
+                        };
+
+                        return `
+                            <div class="bg-stone-50 p-6 rounded-xl border border-stone-200 mb-6">
+                                <h3 class="text-lg font-black text-stone-800 mb-4 border-b border-stone-200 pb-2"><i class="fa-solid fa-scale-unbalanced text-yellow-600 mr-2"></i> Evolução Geral (Atual vs Mês Anterior: ${prevMonthId})</h3>
+                                <div class="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-stone-200">
+                                    <span class="text-stone-600 font-bold text-sm uppercase">Ocorrências Totais:</span>
+                                    <span class="text-lg">${totalStatusHtml}</span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div class="bg-white p-5 rounded-xl border border-green-200 shadow-sm" style="break-inside: avoid;">
+                                    <h4 class="text-green-700 font-black mb-4 flex items-center gap-2 uppercase text-sm"><i class="fa-solid fa-thumbs-up"></i> Setores que Melhoraram</h4>
+                                    ${formatSectorList(improvedSectors, true)}
+                                </div>
+                                <div class="bg-white p-5 rounded-xl border border-red-200 shadow-sm" style="break-inside: avoid;">
+                                    <h4 class="text-red-700 font-black mb-4 flex items-center gap-2 uppercase text-sm"><i class="fa-solid fa-thumbs-down"></i> Setores que Pioraram</h4>
+                                    ${formatSectorList(worsenedSectors, false)}
+                                </div>
+                            </div>
+
+                            <div class="bg-stone-50 p-6 rounded-xl border border-stone-200" style="break-inside: avoid;">
+                                <h3 class="text-lg font-black text-stone-800 mb-4 border-b border-stone-200 pb-2"><i class="fa-solid fa-ranking-star text-yellow-600 mr-2"></i> Ranking de Regras Quebradas (Neste Mês)</h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="bg-white p-4 rounded-lg shadow-sm border border-red-200 flex flex-col items-center justify-center text-center">
+                                        <span class="text-[10px] font-bold text-stone-400 uppercase mb-1">A Regra Mais Quebrada</span>
+                                        <span class="text-red-600 font-black text-sm">${mostBroken ? mostBroken.name : 'Nenhuma infração registada'}</span>
+                                        ${mostBroken ? `<span class="text-xs text-red-500 bg-red-50 px-2 py-1 rounded font-bold mt-2">${mostBroken.count} ocorrência(s)</span>` : ''}
+                                    </div>
+                                    <div class="bg-white p-4 rounded-lg shadow-sm border border-green-200 flex flex-col items-center justify-center text-center">
+                                        <span class="text-[10px] font-bold text-stone-400 uppercase mb-1">A Regra Menos Quebrada (Mas Registada)</span>
+                                        <span class="text-green-600 font-black text-sm">${leastBroken ? leastBroken.name : 'Nenhuma infração registada'}</span>
+                                        ${leastBroken ? `<span class="text-xs text-green-600 bg-green-50 px-2 py-1 rounded font-bold mt-2">${leastBroken.count} ocorrência(s)</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    };
+
+                    const months = [...new Set([...state.logs, ...state.hygieneChecks].map(window.app.getSafeMonthId)), window.app.getMonthId(new Date())].sort().reverse();
                     const selectedMonth = document.getElementById('report_month')?.value || months[0];
                     const monthOpts = months.map(m => `<option value="${m}" ${m===selectedMonth?'selected':''}>${m}</option>`).join('');
 
@@ -1309,8 +1496,10 @@
                                 </table>
                             </div>
                         `;
-                    } else {
+                    } else if (state.reportTab === 'erros') {
                         reportContent = window.app.generateErrorLogsReportHtml(selectedMonth);
+                    } else if (state.reportTab === 'comparativo') {
+                        reportContent = window.app.generateComparativeReportHtml(selectedMonth);
                     }
 
                     return `
@@ -1332,9 +1521,10 @@
                         </div>
 
                         <div class="flex border-b border-stone-200 bg-white sticky top-[60px] z-10 w-full justify-center mb-6">
-                            <div class="flex w-full max-w-md md:max-w-2xl">
-                                <button data-action="setReportTab" data-id="fechamento" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'fechamento' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Valores</button>
-                                <button data-action="setReportTab" data-id="erros" class="flex-1 py-4 text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'erros' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Análise de Erros</button>
+                            <div class="flex w-full max-w-md md:max-w-3xl overflow-x-auto custom-scrollbar">
+                                <button data-action="setReportTab" data-id="fechamento" class="flex-1 py-4 px-4 whitespace-nowrap text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'fechamento' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Valores</button>
+                                <button data-action="setReportTab" data-id="erros" class="flex-1 py-4 px-4 whitespace-nowrap text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'erros' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Análise de Erros</button>
+                                <button data-action="setReportTab" data-id="comparativo" class="flex-1 py-4 px-4 whitespace-nowrap text-sm font-bold border-b-2 transition-colors ${state.reportTab === 'comparativo' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-stone-500'}">Comparativo Mensal</button>
                             </div>
                         </div>
 

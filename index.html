@@ -71,6 +71,14 @@
                 padding: 0 !important; 
                 box-shadow: none !important;
             }
+            /* Ajustes para garantir que os gráficos não quebrem na impressão */
+            canvas {
+                min-height: 250px !important;
+                max-width: 100% !important;
+            }
+            .chart-container-print {
+                page-break-inside: avoid;
+            }
             table { border-collapse: collapse !important; width: 100% !important; }
             th { background-color: #f9fafb !important; color: #374151 !important; border-bottom: 2px solid #e5e7eb !important; }
             td { border-bottom: 1px solid #f3f4f6 !important; }
@@ -269,7 +277,7 @@
 
             openModal: (html) => {
                 document.getElementById('modals').innerHTML = `
-                    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
+                    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay no-print">
                         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in text-stone-900">
                             ${html}
                         </div>
@@ -384,6 +392,7 @@
                 if (sectorId !== 'todos') {
                     filtered = filtered.filter(e => e.sectorId === sectorId);
                 }
+                // Ordenação segura (fallback para strings vazias se o nome não existir)
                 filtered.sort((a,b) => (a.name||'').localeCompare(b.name||''));
                 
                 if (filtered.length === 0) {
@@ -395,10 +404,10 @@
                 listDiv.innerHTML = filtered.map(emp => {
                     const sec = state.sectors.find(s => s.id === emp.sectorId);
                     return `
-                    <label class="emp-cb-item flex items-center gap-3 p-3 hover:bg-stone-50 rounded-lg cursor-pointer border border-transparent hover:border-stone-200 transition-colors" data-name="${emp.name.toLowerCase()}">
+                    <label class="emp-cb-item flex items-center gap-3 p-3 hover:bg-stone-50 rounded-lg cursor-pointer border border-transparent hover:border-stone-200 transition-colors" data-name="${(emp.name||'').toLowerCase()}">
                         <input type="checkbox" value="${emp.id}" class="log-emp-cb w-5 h-5 text-yellow-600 rounded border-stone-300 focus:ring-yellow-500">
                         <div>
-                            <span class="text-sm text-stone-800 font-bold block leading-tight">${emp.name}</span>
+                            <span class="text-sm text-stone-800 font-bold block leading-tight">${emp.name || 'Colaborador sem nome'}</span>
                             <span class="text-[10px] text-stone-500 font-bold uppercase">${sec ? sec.name : 'Geral'}</span>
                         </div>
                     </label>
@@ -493,7 +502,7 @@
                                 <button data-action="${deleteAction}" data-id="${log.id}" class="absolute top-4 right-4 text-red-500 bg-stone-100 p-2 rounded hover:bg-red-50 transition-colors"><i class="fa-solid fa-trash"></i></button>
                                 <div class="pr-10">
                                     <span class="text-[10px] font-bold text-stone-400 uppercase"><i class="fa-solid fa-calendar mr-1"></i> ${dateStr}</span>
-                                    <h4 class="font-bold text-stone-800 text-sm mt-1">${emp ? emp.name : '<span class="text-red-500 italic">Colab. Excluído</span>'}</h4>
+                                    <h4 class="font-bold text-stone-800 text-sm mt-1">${emp ? (emp.name || 'Sem Nome') : '<span class="text-red-500 italic">Colab. Excluído</span>'}</h4>
                                     <div class="flex items-center gap-2 mt-1 flex-wrap">
                                         <span class="text-[10px] bg-stone-100 border px-1.5 rounded text-stone-500">${sec ? sec.name : 'N/A'}</span>
                                         <span class="text-xs font-bold text-red-600">${ruleName}</span>
@@ -798,10 +807,14 @@
             },
             
             showProrationForm: () => {
-                const empOpts = state.employees.map(e => {
+                // Utilizando a ordenação e formatação seguras.
+                let filteredEmployees = [...state.employees].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+                
+                const empOpts = filteredEmployees.map(e => {
                     const sec = state.sectors.find(s => s.id === e.sectorId);
-                    return `<option value="${e.id}">${e.name} - ${sec ? sec.name : 'Geral'}</option>`;
+                    return `<option value="${e.id}">${e.name || 'Sem nome'} - ${sec ? sec.name : 'Geral'}</option>`;
                 }).join('');
+                
                 const currentMonth = window.app.getMonthId(new Date());
                 window.app.openModal(`
                     <div class="p-4 border-b border-stone-200">
@@ -950,30 +963,35 @@
                     const monthOpts = months.map(m => `<option value="${m}">${m}</option>`).join('');
 
                     return `
-                        <div class="flex items-center gap-3 mb-6">
-                            <button data-nav="dashboard" class="text-stone-400 hover:text-stone-800 transition-colors" title="Voltar ao Painel">
-                                <i class="fa-solid fa-arrow-left text-xl"></i>
+                        <div class="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                            <div class="flex items-center gap-3">
+                                <button data-nav="dashboard" class="text-stone-400 hover:text-stone-800 transition-colors" title="Voltar ao Painel">
+                                    <i class="fa-solid fa-arrow-left text-xl"></i>
+                                </button>
+                                <h2 class="font-black text-stone-800 text-xl m-0">Indicadores e Gráficos</h2>
+                            </div>
+                            <button data-action="print" class="px-6 py-2.5 bg-stone-800 text-white rounded-lg font-bold text-sm shadow hover:bg-stone-900 flex items-center gap-2">
+                                <i class="fa-solid fa-print"></i> PDF / Imprimir
                             </button>
-                            <h2 class="font-black text-stone-800 text-xl m-0">Indicadores e Gráficos</h2>
                         </div>
                         
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between animate-fade-in">
+                        <div class="print-card bg-white p-4 rounded-xl shadow-sm border border-stone-200 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between animate-fade-in">
                             <h3 class="text-sm font-bold text-stone-500 uppercase"><i class="fa-solid fa-chart-line mr-2"></i> Histórico Mensal</h3>
-                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <div class="flex items-center gap-2 w-full sm:w-auto no-print">
                                 <label class="text-xs font-bold text-stone-500 uppercase">Mês:</label>
                                 <select id="chart_month" class="p-2 border border-stone-300 rounded-lg outline-none focus:border-blue-500 bg-stone-50 text-sm font-bold flex-1 sm:w-48">${monthOpts}</select>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 lg:col-span-2 animate-fade-in">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 chart-container-print">
+                            <div class="print-card bg-white p-6 rounded-xl shadow-sm border border-stone-200 lg:col-span-2 animate-fade-in">
                                 <h3 class="font-bold text-stone-800 text-base mb-4 text-center">Diagrama de Pareto (Ocorrências por Infração)</h3>
                                 <div class="relative h-72 w-full">
                                     <canvas id="chartPareto"></canvas>
                                 </div>
                             </div>
                             
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 animate-fade-in">
+                            <div class="print-card bg-white p-6 rounded-xl shadow-sm border border-stone-200 animate-fade-in">
                                 <h3 class="font-bold text-stone-800 text-base mb-4 text-center">Ocorrências por Setor</h3>
                                 <div class="relative h-72 w-full">
                                     <canvas id="chartPie"></canvas>
@@ -983,7 +1001,7 @@
                     `;
                 },
                 colaboradores: () => {
-                    const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                    const sectorOpts = state.sectors.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
                     return `
                         <div class="flex items-center gap-3 mb-6">
@@ -1018,7 +1036,7 @@
                     `;
                 },
                 setores: () => {
-                    const secList = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(sec => `
+                    const secList = state.sectors.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(sec => `
                         <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center">
                             <div>
                                 <p class="font-bold text-stone-800">${sec.name}</p>
@@ -1079,7 +1097,7 @@
                     let content = '';
                     if (activeTab === 'historico') {
                         const monthOpts = [...new Set([...state.logs, ...state.hygieneChecks].map(window.app.getSafeMonthId)), window.app.getMonthId(new Date())].sort().reverse().map(m => `<option value="${m}">${m}</option>`).join('');
-                        const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                        const sectorOpts = state.sectors.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
                         content = `
                             <div class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 mb-6 animate-fade-in">
@@ -1092,7 +1110,7 @@
                             <div id="log_history_container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-8"></div>
                         `;
                     } else {
-                        const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                        const sectorOpts = state.sectors.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                         const ruleOpts = state.rules.filter(r => r.id !== 'higiene').map(r => `<option value="${r.id}">${r.name} (-${window.app.formatPct(r.pct)})</option>`).join('');
                         const today = new Date().toISOString().split('T')[0];
 
@@ -1173,15 +1191,15 @@
                 },
                 higiene: () => {
                     const today = document.getElementById('higiene_date')?.value || new Date().toISOString().split('T')[0];
-                    const sectorOpts = state.sectors.sort((a,b)=>a.name.localeCompare(b.name)).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                    const sectorOpts = state.sectors.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
                     let sectorsHtml = '';
                     const grouped = {};
                     state.employees.forEach(emp => { if(!grouped[emp.sectorId]) grouped[emp.sectorId] = []; grouped[emp.sectorId].push(emp); });
 
-                    [...state.sectors].sort((a,b)=>a.name.localeCompare(b.name)).forEach(sec => {
+                    [...state.sectors].sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(sec => {
                         const emps = grouped[sec.id];
                         if(!emps || emps.length === 0) return;
-                        emps.sort((a,b)=>a.name.localeCompare(b.name));
+                        emps.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
                         
                         const empsHtml = emps.map(emp => {
                             const infraction = state.hygieneChecks.find(hc => hc.employeeId === emp.id && hc.date === today);
@@ -1189,9 +1207,9 @@
                             const obsValue = infraction ? (infraction.obs || '') : '';
 
                             return `
-                            <div class="higiene-emp-row flex flex-col justify-center p-4 border border-stone-200 rounded-xl hover:border-yellow-400 hover:shadow-md transition-all bg-white" data-name="${emp.name.toLowerCase()}">
+                            <div class="higiene-emp-row flex flex-col justify-center p-4 border border-stone-200 rounded-xl hover:border-yellow-400 hover:shadow-md transition-all bg-white" data-name="${(emp.name||'').toLowerCase()}">
                                 <div class="flex items-center justify-between gap-3">
-                                    <span class="text-stone-800 font-bold text-sm leading-tight flex-1">${emp.name}</span>
+                                    <span class="text-stone-800 font-bold text-sm leading-tight flex-1">${emp.name || 'Colaborador Sem Nome'}</span>
                                     <label class="flex items-center cursor-pointer shrink-0">
                                         <span class="mr-2 text-[10px] sm:text-xs font-black uppercase ${isChecked ? 'text-red-500' : 'text-green-600'}">${isChecked ? 'Penalizado' : 'Tudo OK'}</span>
                                         <input type="checkbox" class="sr-only peer hygiene-checkbox" data-empid="${emp.id}" data-date="${today}" ${isChecked ? 'checked' : ''}>
@@ -1241,7 +1259,7 @@
                     const currentMonthId = window.app.getMonthId(new Date());
                     const list = state.prorations.filter(p => p.monthId === currentMonthId).map(p => {
                         const emp = state.employees.find(e => e.id === p.employeeId);
-                        return `<div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center animate-fade-in"><div><p class="font-bold text-stone-800 text-base">${emp?emp.name:'Desc.'}</p><p class="text-sm text-stone-500 uppercase mt-1">Trabalhou: <strong class="text-yellow-600">${p.daysWorked}</strong> de ${p.totalDays} dias</p></div><button data-action="confirmDeleteProration" data-id="${p.id}" class="p-3 bg-stone-100 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"><i class="fa-solid fa-trash"></i></button></div>`;
+                        return `<div class="bg-white p-5 rounded-xl shadow-sm border border-stone-200 flex justify-between items-center animate-fade-in"><div><p class="font-bold text-stone-800 text-base">${emp?(emp.name||'Colab. sem nome'):'Colab. Excluído'}</p><p class="text-sm text-stone-500 uppercase mt-1">Trabalhou: <strong class="text-yellow-600">${p.daysWorked}</strong> de ${p.totalDays} dias</p></div><button data-action="confirmDeleteProration" data-id="${p.id}" class="p-3 bg-stone-100 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"><i class="fa-solid fa-trash"></i></button></div>`;
                     }).join('');
 
                     return `
@@ -1307,7 +1325,7 @@
                             const finalValue = validBase - (validBase * totalDeductionPct);
                             report.push({ emp, sectorName: sector.name, baseValue, validBase, proportionMsg, totalDeductionPct, finalValue });
                         });
-                        return report.sort((a,b) => a.sectorName.localeCompare(b.sectorName) || a.emp.name.localeCompare(b.emp.name));
+                        return report.sort((a,b) => (a.sectorName||'').localeCompare(b.sectorName||'') || (a.emp.name||'').localeCompare(b.emp.name||''));
                     };
 
                     window.app.generateErrorLogsReportHtml = (monthId) => {
@@ -1339,7 +1357,7 @@
                                     const dateStr = l.date ? l.date.split('-').reverse().join('/') : '--/--/----';
                                     return `<li class="text-sm text-stone-700 ml-2 border-l-2 border-red-400 pl-3 py-1 mb-2"><span class="font-bold text-stone-500 mr-2">${dateStr}</span>${ruleName} <b class="text-red-500">(-${window.app.formatPct(rulePct)})</b>${l.obs?`<br><span class="text-xs italic text-stone-400 mt-1 block">Obs: ${l.obs}</span>`:''}</li>`;
                                 }).join('');
-                                sectorLogsHtml += `<div class="mb-4 bg-white rounded-lg p-4 border border-stone-200" style="break-inside: avoid;"><p class="font-bold text-stone-800 text-base mb-3">${emp.name}</p><ul>${logsList}</ul></div>`;
+                                sectorLogsHtml += `<div class="mb-4 bg-white rounded-lg p-4 border border-stone-200" style="break-inside: avoid;"><p class="font-bold text-stone-800 text-base mb-3">${emp.name || 'Sem nome'}</p><ul>${logsList}</ul></div>`;
                             });
                             
                             if(sectorLogsHtml) {
@@ -1478,7 +1496,7 @@
                     if (state.reportTab === 'fechamento') {
                         const tableRows = window.app.calculateMonthlyReport(selectedMonth).map(row => `
                             <tr class="text-xs md:text-sm border-b hover:bg-stone-50">
-                                <td class="px-3 md:px-4 py-3 font-bold text-stone-800">${row.emp.name}</td>
+                                <td class="px-3 md:px-4 py-3 font-bold text-stone-800">${row.emp.name || 'Sem nome'}</td>
                                 <td class="px-3 md:px-4 py-3 text-stone-600">${row.sectorName}</td>
                                 <td class="px-3 md:px-4 py-3 text-right text-stone-500">${window.app.formatBRL(row.baseValue)}</td>
                                 <td class="px-3 md:px-4 py-3 text-center text-blue-600 font-bold">${row.totalDeductionPct > 0 ? '-'+window.app.formatPct(row.totalDeductionPct) : '0%'}</td>
@@ -1644,8 +1662,11 @@
                 if (formId === 'form-employee') {
                     const id = document.getElementById('emp_id').value || window.app.generateId();
                     const customValInput = document.getElementById('emp_custom_val').value;
+                    // Garante que o nome nunca é salvo nulo e impede crashe nas funções de texto
+                    const safeName = document.getElementById('emp_name').value || 'Colaborador sem nome';
+                    
                     const data = {
-                        name: document.getElementById('emp_name').value,
+                        name: safeName,
                         sectorId: document.getElementById('emp_sector').value,
                         role: document.getElementById('emp_role').value,
                         customBaseValue: customValInput ? Number(customValInput) : null,

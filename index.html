@@ -1398,26 +1398,31 @@
                             let sectorLogsHtml = '';
                             emps.forEach(emp => {
                                 const allLogs = [...state.logs.filter(l => l.employeeId === emp.id && l.monthId === monthId), ...state.hygieneChecks.filter(h => h.employeeId === emp.id && window.app.getSafeMonthId(h) === monthId).map(h => ({ ...h, ruleId: 'higiene' }))].sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
-                                if(allLogs.length === 0) return;
-                                const logsList = allLogs.map(l => {
-                                    let ruleName = 'Desc.';
-                                    let rulePct = 0;
-                                    
-                                    if (l.ruleId === 'zerar_gratificacao') {
-                                        ruleName = 'Zerar Gratificação';
-                                        rulePct = 1;
-                                    } else if (l.ruleId === 'higiene') {
-                                        ruleName = 'Higiene Pessoal';
-                                        const hRule = state.rules.find(r => r.id === 'higiene');
-                                        rulePct = hRule ? hRule.pct : 0;
-                                    } else {
-                                        const rule = state.rules.find(r => r.id === l.ruleId);
-                                        if (rule) { ruleName = rule.name; rulePct = rule.pct; }
-                                    }
-                                    
-                                    const dateStr = l.date ? l.date.split('-').reverse().join('/') : '--/--/----';
-                                    return `<li class="text-sm text-stone-700 ml-2 border-l-2 border-red-400 pl-3 py-1 mb-2"><span class="font-bold text-stone-500 mr-2">${dateStr}</span>${ruleName} <b class="text-red-500">(-${window.app.formatPct(rulePct)})</b>${l.obs?`<br><span class="text-xs italic text-stone-400 mt-1 block">Obs: ${l.obs}</span>`:''}</li>`;
-                                }).join('');
+                                
+                                let logsList = '';
+                                if(allLogs.length === 0) {
+                                    logsList = `<li class="text-sm text-green-600 italic ml-2 border-l-2 border-green-400 pl-3 py-1 mb-2"><i class="fa-solid fa-check mr-1"></i> Nenhuma ocorrência registada</li>`;
+                                } else {
+                                    logsList = allLogs.map(l => {
+                                        let ruleName = 'Desc.';
+                                        let rulePct = 0;
+                                        
+                                        if (l.ruleId === 'zerar_gratificacao') {
+                                            ruleName = 'Zerar Gratificação';
+                                            rulePct = 1;
+                                        } else if (l.ruleId === 'higiene') {
+                                            ruleName = 'Higiene Pessoal';
+                                            const hRule = state.rules.find(r => r.id === 'higiene');
+                                            rulePct = hRule ? hRule.pct : 0;
+                                        } else {
+                                            const rule = state.rules.find(r => r.id === l.ruleId);
+                                            if (rule) { ruleName = rule.name; rulePct = rule.pct; }
+                                        }
+                                        
+                                        const dateStr = l.date ? l.date.split('-').reverse().join('/') : '--/--/----';
+                                        return `<li class="text-sm text-stone-700 ml-2 border-l-2 border-red-400 pl-3 py-1 mb-2"><span class="font-bold text-stone-500 mr-2">${dateStr}</span>${ruleName} <b class="text-red-500">(-${window.app.formatPct(rulePct)})</b>${l.obs?`<br><span class="text-xs italic text-stone-400 mt-1 block">Obs: ${l.obs}</span>`:''}</li>`;
+                                    }).join('');
+                                }
                                 sectorLogsHtml += `<div class="mb-4 bg-white rounded-lg p-4 border border-stone-200" style="break-inside: avoid;"><p class="font-bold text-stone-800 text-base mb-3">${emp.name || 'Sem nome'}</p><ul>${logsList}</ul></div>`;
                             });
                             
@@ -1427,7 +1432,7 @@
                                 sectorCount++;
                             }
                         });
-                        return html || '<div class="p-8 text-center text-stone-400 text-sm border border-dashed border-stone-300 rounded-xl">Sem erros registados.</div>';
+                        return html || '<div class="p-8 text-center text-stone-400 text-sm border border-dashed border-stone-300 rounded-xl">Sem dados para exibir.</div>';
                     };
 
                     window.app.generateComparativeReportHtml = (monthId) => {
